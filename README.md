@@ -20,6 +20,13 @@
 
 ---
 
+<!-- ──── Milestone 1   ───── -->
+### Three fields in the listings file
+- Title
+- Description 
+- Size
+
+
 <!-- ─────────────────────────────────────────────────────────────────────────
      HOW TO USE THIS FILE
 
