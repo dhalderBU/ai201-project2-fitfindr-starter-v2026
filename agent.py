@@ -12,7 +12,7 @@ Build and test your three tools in `tools.py` first. Then come here.
 
     python agent.py          runs both example paths below
 """
-
+import re
 import config
 import trace
 from tools import search_listings, suggest_outfit, create_fit_card
@@ -48,6 +48,37 @@ def new_session(query: str, wardrobe: dict) -> dict:
 
 
 # ── planning loop ─────────────────────────────────────────────────────────────
+
+
+def _parse_query(query: str) -> dict:
+    """Extract the description, optional size, and optional price ceiling."""
+    text = query.strip()
+    size_match = re.search(
+        r"\b(?:in\s+)?size\s+([a-z0-9]+(?:\s*/\s*[a-z0-9]+)?)",
+        text,
+        flags=re.IGNORECASE,
+    )
+
+    description = text
+    if size_match:
+        description = description[:size_match.start()] + description[size_match.end():]
+
+    price_match = re.search(
+        r"\b(?:under|below|less\s+than|up\s+to)\s+\$?\s*(\d+(?:\.\d+)?)",
+        description,
+        flags=re.IGNORECASE,
+    )
+    if price_match:
+        description = (
+            description[:price_match.start()] + description[price_match.end():]
+        )
+
+    return {
+        "description": re.sub(r"\s+", " ", description).strip(" ,."),
+        "size": size_match.group(1).strip() if size_match else None,
+        "max_price": float(price_match.group(1)) if price_match else None,
+    }
+
 
 def run_agent(query: str, wardrobe: dict) -> dict:
     """
@@ -106,10 +137,66 @@ def run_agent(query: str, wardrobe: dict) -> dict:
         than a stack trace. The import is already at the top of this file.
     """
     session = new_session(query, wardrobe)
+    iteration = 0
 
-    # TODO: delete these two lines and build the loop.
-    session["error"] = "The planning loop isn't built yet — see the TODO in agent.py."
-    return session
+    while True:
+        iteration += 1
+        trace.check_iterations(iteration)
+
+        parsed = _parse_query(session["query"])
+        session["parsed"] = parsed
+        trace.step("parse_query", inputs=session["query"], returned=parsed)
+
+        results = search_listings(
+            parsed["description"],
+            parsed["size"],
+            parsed["max_price"],
+        )
+        session["search_results"] = results
+        trace.step("search_listings", inputs=parsed, returned=results)
+
+        #_________ Branch rule: if nothing came back, stop and propose change__________________
+        #_________ RULE : If search_listings returns an empty list, put a message in the session and stop. Otherwise, take the first result and go to suggest_outfit______
+        
+        if not results:
+            session["error"] = (
+                "No listings matched. Try broader keywords, a different size, "
+                "or a higher price limit."
+            )
+            trace.step(
+                "empty-search branch",
+                returned=session["error"],
+                note="stopping before suggest_outfit",
+            )
+            return session
+
+        session["selected_item"] = results[0]
+        trace.step("select_item", returned=session["selected_item"])
+
+        try:
+            session["outfit_suggestion"] = suggest_outfit(
+                session["selected_item"],
+                session["wardrobe"],
+            )
+            trace.step(
+                "suggest_outfit",
+                inputs=session["selected_item"],
+                returned=session["outfit_suggestion"],
+            )
+
+            session["fit_card"] = create_fit_card(
+                session["outfit_suggestion"],
+                session["selected_item"],
+            )
+            trace.step(
+                "create_fit_card",
+                inputs=session["outfit_suggestion"],
+                returned=session["fit_card"],
+            )
+        except ModelUnavailable as exc:
+            session["error"] = f"Unable to complete the styling request: {exc}"
+            trace.step("model error", returned=session["error"])
+        return session
 
 
 # ── running it directly ───────────────────────────────────────────────────────
