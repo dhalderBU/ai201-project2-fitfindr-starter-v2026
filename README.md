@@ -13,8 +13,9 @@
 > python app.py ask 'vintage graphic tee under $30'
 > ```
 >
-> All three tools are stubs, so that last command will do nothing useful yet.
-> That's the starting position.
+> The agent searches listings, compares the selected item's price with its
+> category average, suggests an outfit, and creates a fit card. Add `--trace`
+> to see the tool calls and branches.
 >
 > **The rest of this file is your submission.** Fill it in as you go.
 
@@ -46,7 +47,10 @@
 
 ## Planned Stretch Features — Category-Average Comparison
 
-This declaration is being committed before the following features are built.
+The following declaration was committed before implementation in
+[`5385159`](https://github.com/dhalderBU/ai201-project2-fitfindr-starter-v2026/commit/5385159).
+The tool and branch are now implemented; actual evidence appears under
+**Sample Run — Stretch features** below.
 
 1. **Fourth tool: `compare_price(new_item: dict) -> dict`.** Use the existing
    `load_listings()` loader to compare the selected listing's price with the
@@ -70,16 +74,18 @@ This declaration is being committed before the following features are built.
 The comparison covers the supplied dataset, not current market prices. It
 uses every other listing in the category, irrespective of the search budget,
 size, brand, or condition; it is a broad reference rather than a valuation.
-After implementation, the Tool Inventory, Planning Loop, and Sample Run
-sections will explain the changes and include actual terminal evidence of
-the fourth-tool call and the above-average branch. Style memory is not part
-of this declaration.
+The Tool Inventory, Planning Loop, and Sample Run sections explain the changes
+and include terminal evidence of the fourth-tool call and the above-average
+branch. Style memory is not part of this declaration.
 
 ## What This Does
 
 <!-- Three or four sentences: what a user asks for, and what they get back. -->
 This application searches for clothing and garments(from listing) based on inputs like a) description b)size and c) price. 
 The system generates search results from listing (if available) and then generates Outfit based on wardrobe and a fit card statement for social media postingwhich is caption on the find
+It also compares the selected item's price with the average of other listings
+in the same category and displays a warning when it is above that average.
+This comparison uses the supplied dataset and makes no additional model call.
 
 ---
 
@@ -119,6 +125,26 @@ The system generates search results from listing (if available) and then generat
 - **Returns:** A two-to-four-sentence fit-card caption as a string.
 - **When it has nothing:** If `outfit` is empty or contains only whitespace, returns a message asking for an outfit suggestion.
 
+### `compare_price` — fourth tool
+
+- **What it does:** Compare the selected listing with every other listing in
+  `data/listings.json` with the same category, excluding its own ID. Search
+  keywords, size, and budget do not restrict the comparison group.
+- **Input:** `new_item` (dict): a complete listing returned by `search_listings`,
+  including `id` (str), `category` (str), and `price` (float).
+- **Returns:** A dictionary containing `listing_id` (str), `category` (str),
+  `item_price` (float), `comparison_count` (int), `average_price` (float or
+  None), `difference` (float or None), and `status` (str). The average is
+  `sum(prices) / len(prices)`, rounded to cents. The difference is the item
+  price minus that rounded average, also rounded to cents. A positive, negative,
+  or zero difference gives `above_average`, `below_average`, or `at_average`.
+- **When it has nothing:** Return `comparison_count=0`, `average_price=None`,
+  `difference=None`, and `status="insufficient_data"`.
+
+This tool uses `load_listings()` and Python built-ins; it adds no package or
+model request. Category averages mix garment types, brands, and conditions,
+so they are a broad dataset reference, not evidence of market value.
+
 ---
 
 ## Planning Loop
@@ -134,13 +160,35 @@ The system generates search results from listing (if available) and then generat
      The grader checks your code against what you claim here, so the file and
      function have to be real. -->
 
-**Branch rule:** If `search_listings` returns an empty list, put a message in the session and stop. Otherwise, take the first result and go to `suggest_outfit`.
+**Branch rules:** In `agent.py::run_agent`, if `search_listings` returns an empty
+list, put a useful message in the session and stop. Otherwise, skip listings
+that appear in the wardrobe by category, meaningful name, and shared color;
+stop with a message if all results are owned. Store the first unowned result
+as the selected item, then call `compare_price`.
+
+The new stretch branch checks whether
+`session["price_comparison"]["status"] == "above_average"`. If true, store
+`session["price_warning"]`, record `above-average price branch` in the trace,
+and display the warning in the CLI. Otherwise leave the warning as `None` and
+record `price comparison: no warning`. Both paths continue to `suggest_outfit`
+and `create_fit_card` with the same selected item. No comparison or model tool
+is called after an empty-search or all-owned stop. If there are no comparison
+peers, show that the average is unavailable and continue without a warning.
 
 **Where it lives:** The `branch rule` is implemented in the `run_agent` function in agent.py.
 
 **How the query is parsed:** Regular expressions extract the description, optional size, and maximum price from the user’s query. The function removes the size and price phrases from the description, converts the price to a float, and returns all three values in a dictionary.
 
-**What moves through the session:** First, the user's query is parsed into a dictionary named `parsed` and stored in the session under `session["parsed"]`. The list returned by `search_listings` is temporarily stored in `results` and then saved under `session["search_results"]`. The first result becomes `session["selected_item"]` and is passed to `suggest_outfit`, which calls the LLM through `generate()` and stores the response in `session["outfit_suggestion"]`. Finally, `outfit_suggestion` and `selected_item` are passed to `create_fit_card`, which calls the LLM to generate and store `session["fit_card"]`. **The session maintains the state for the run**, including the query, parsed values, wardrobe, search results, selected item, outfit suggestion, fit card, and any error message.
+**What moves through the session:** The parsed query and search results are
+stored in `session["parsed"]` and `session["search_results"]`. The first unowned
+result becomes `session["selected_item"]`. `compare_price` reads that item and
+its return value is stored in `session["price_comparison"]`; the branch reads
+that stored result and may set `session["price_warning"]`. The selected item
+and wardrobe then go to `suggest_outfit`, whose output is stored as
+`session["outfit_suggestion"]`. The outfit and a copy of the item are saved in
+`session["fit_card_inputs"]` and passed to `create_fit_card`; its output is
+stored as `session["fit_card"]` and appended to `session["fit_card_outputs"]`.
+The price warning is displayed separately from the caption.
 
 **Gap in specs that needs addressing :** Clothing items use different sizing systems—for example, tops may use sizes such as `S`, `M`, or `L`, while pants may use measurements such as `W30 L30`. The specification should define how each type of size is matched and how universal-size items are handled.
 
@@ -152,6 +200,177 @@ The system generates search results from listing (if available) and then generat
 
      1. One FULL query and its output, pasted as text.
      2. Your three per-tool terminal tests — the command and what it printed. -->
+
+### Sample Run — Stretch features
+
+The examples below were captured from actual CLI runs on October 11, 2026,
+using the existing `venv-codepath` Python environment. Commands are shown as
+`python` with that environment active. The two full runs used the existing
+local settings: model `gemini-3.5-flash-lite`, temperature `0`, and caching
+available; each reported two actual model calls. The comparison tool itself
+made no model call. These are demonstration runs, not five-trial acceptance
+results.
+
+**Fourth tool, called directly**
+
+```bash
+python -c 'import json; from tools import compare_price; from utils.data_loader import load_listings; print(json.dumps(compare_price(load_listings()[3]), indent=2))'
+```
+
+```text
+{
+  "listing_id": "lst_004",
+  "category": "outerwear",
+  "item_price": 45.0,
+  "comparison_count": 7,
+  "average_price": 43.86,
+  "difference": 1.14,
+  "status": "above_average"
+}
+```
+
+**Above-average branch — full agent run**
+
+```bash
+python app.py ask --trace '90s track jacket in size M'
+```
+
+```text
+Trace generated at: 2026-10-11T01:27:24-07:00
+[1] 2026-10-11T01:27:24-07:00 +0.000s (step 0.000s) parse_query
+      in:  90s track jacket in size M
+      out: dict with keys: description, size, max_price
+[2] 2026-10-11T01:27:24-07:00 +0.001s (step 0.000s) search_listings
+      in:  dict with keys: description, size, max_price
+      out: 4 items: 90s Track Jacket — Navy/White Stripe, 90s Leather Bomber — Black, 90s Silk Slip Dress — Floral, Midi Length … +1 more
+[3] 2026-10-11T01:27:24-07:00 +0.001s (step 0.000s) select_item
+      out: 90s Track Jacket — Navy/White Stripe ($45.0, poshmark)
+[4] 2026-10-11T01:27:24-07:00 +0.001s (step 0.000s) compare_price
+      in:  90s Track Jacket — Navy/White Stripe ($45.0, poshmark)
+      out: dict with keys: listing_id, category, item_price, comparison_count, average_price, difference
+      →    status=above_average; peers=7; average=43.86; difference=1.14
+[5] 2026-10-11T01:27:24-07:00 +0.001s (step 0.000s) above-average price branch
+      out: This item is $1.14 above the $43.86 average of 7 other outerwear listings in this dataset. This is a broad cat…
+      →    show a price warning and continue to suggest_outfit
+[6] 2026-10-11T01:27:27-07:00 +2.683s (step 2.682s) suggest_outfit
+      in:  90s Track Jacket — Navy/White Stripe ($45.0, poshmark)
+      out: Here are two outfit suggestions using the 90s track jacket and your existing wardrobe:  **Outfit 1: 90s Street…
+[7] 2026-10-11T01:27:27-07:00 +3.450s (step 0.766s) create_fit_card
+      in:  dict with keys: outfit, new_item
+      out: Score this amazing 90s Track Jacket — Navy/White Stripe on poshmark for just $45.0! It’s the ultimate piece fo…
+
+  Category average: $43.86 across 7 other outerwear listings in this dataset.
+  Price warning: This item is $1.14 above the $43.86 average of 7 other outerwear listings in this dataset. This is a broad category comparison, not a market valuation.
+
+  Found:    90s Track Jacket — Navy/White Stripe — $45.0 on poshmark
+
+  Outfit:   Here are two outfit suggestions using the 90s track jacket and your existing wardrobe:
+
+**Outfit 1: 90s Streetwear Casual**
+*   **Top:** White ribbed tank top
+*   **Outerwear:** 90s Track Jacket — Navy/White Stripe (worn fully or partially unzipped)
+*   **Bottoms:** Baggy straight-leg jeans, dark wash
+*   **Shoes:** Chunky white sneakers
+*   **Accessories:** Black crossbody bag
+*   **Styling:** Lean into the athletic 90s aesthetic by pairing the fitted white tank with the baggy high-waisted jeans, letting the lightweight track jacket serve as an easy outer layer. Finish with chunky sneakers and the crossbody bag.
+
+**Outfit 2: High-Low Contrast**
+*   **Top:** White ribbed tank top
+*   **Outerwear:** 90s Track Jacket — Navy/White Stripe
+*   **Bottoms:** Wide-leg khaki trousers
+*   **Shoes:** Chunky white sneakers
+*   **Accessories:** Brown leather belt, black crossbody bag
+*   **Styling:** Mix athletic streetwear with minimal earth tones by layering the track jacket over the white tank tucked into the wide-leg khaki trousers. Use the brown leather belt to anchor the look and keep the sneakers white to tie in the stripe details of the jacket.
+
+  Fit card: Score this amazing 90s Track Jacket — Navy/White Stripe on poshmark for just $45.0! It’s the ultimate piece for nailing that effortless streetwear aesthetic. Layer it over a ribbed tank and baggy denim for a vintage vibe, or dress it up with khaki trousers. Such a versatile find! #90sStreetwear #VintageStyle
+
+2 model calls this session, 1008 prompt + 359 output tokens
+```
+
+The selected jacket costs $45.00. The seven other outerwear listings total
+$307.00, so their average is $43.86 after rounding. The comparison result is
+stored in `session["price_comparison"]`; the loop takes the above-average
+branch, stores the $1.14 warning, and continues through both model tools.
+The warning is displayed separately from the fit card.
+
+**Below-average path — trace and comparison excerpt**
+
+```bash
+python app.py ask --trace 'butterfly print tee'
+```
+
+```text
+Trace generated at: 2026-10-11T01:28:24-07:00
+[1] 2026-10-11T01:28:24-07:00 +0.001s (step 0.001s) parse_query
+      in:  butterfly print tee
+      out: dict with keys: description, size, max_price
+[2] 2026-10-11T01:28:24-07:00 +0.001s (step 0.000s) search_listings
+      in:  dict with keys: description, size, max_price
+      out: 6 items: Y2K Baby Tee — Butterfly Print, Graphic Tee — 2003 Tour Bootleg Style, Low-Rise Cargo Pants — Khaki … +3 more
+[3] 2026-10-11T01:28:24-07:00 +0.001s (step 0.000s) select_item
+      out: Y2K Baby Tee — Butterfly Print ($18.0, depop)
+[4] 2026-10-11T01:28:24-07:00 +0.001s (step 0.000s) compare_price
+      in:  Y2K Baby Tee — Butterfly Print ($18.0, depop)
+      out: dict with keys: listing_id, category, item_price, comparison_count, average_price, difference
+      →    status=below_average; peers=14; average=22.0; difference=-4.0
+[5] 2026-10-11T01:28:24-07:00 +0.001s (step 0.000s) price comparison: no warning
+      out: below_average
+      →    continue to suggest_outfit
+[6] 2026-10-11T01:28:27-07:00 +2.304s (step 2.303s) suggest_outfit
+      in:  Y2K Baby Tee — Butterfly Print ($18.0, depop)
+      out: **Outfit 1: Y2K Streetwear** * **New Item:** Y2K Baby Tee — Butterfly Print * **Wardrobe Pieces:** Baggy strai…
+[7] 2026-10-11T01:28:27-07:00 +3.136s (step 0.831s) create_fit_card
+      in:  dict with keys: outfit, new_item
+      out: Score this Y2K Baby Tee — Butterfly Print for just $18.0 on depop! Style it with baggy jeans and chunky sneake…
+
+  Category average: $22.00 across 14 other tops listings in this dataset.
+
+  Found:    Y2K Baby Tee — Butterfly Print — $18.0 on depop
+```
+
+The tee costs $18.00 and the fourteen other tops average $22.00. This path
+leaves `session["price_warning"]` as `None` and still produces an outfit and
+fit card. The full output, including both, is saved below.
+
+**Empty search — existing early stop**
+
+```bash
+python app.py ask --trace 'designer ballgown size XXS under $5'
+```
+
+```text
+Trace generated at: 2026-10-11T01:28:24-07:00
+[1] 2026-10-11T01:28:24-07:00 +0.001s (step 0.001s) parse_query
+      in:  designer ballgown size XXS under $5
+      out: dict with keys: description, size, max_price
+[2] 2026-10-11T01:28:24-07:00 +0.001s (step 0.000s) search_listings
+      in:  dict with keys: description, size, max_price
+      out: [] (empty)
+[3] 2026-10-11T01:28:24-07:00 +0.001s (step 0.000s) empty-search branch
+      out: No listings matched. Try broader keywords, a different size, or a higher price limit.
+      →    stopping before suggest_outfit
+
+  No listings matched. Try broader keywords, a different size, or a higher price limit.
+
+0 model calls this session
+```
+
+Full captured outputs: [direct tool](results/stretch_price_tool.txt),
+[above average](results/stretch_price_above_average.txt),
+[below average](results/stretch_price_below_average.txt), and
+[empty search](results/stretch_price_empty_search.txt).
+
+**Automated verification**
+
+`python -m unittest -v test_price_comparison` passed all eight tests. They
+cover the arithmetic mean (including an outlier), ID/category exclusions,
+cent rounding, above/below/equal prices, no peers, both warning paths, session
+handoffs, CLI display, and the empty-search/all-owned stops. These tests use
+fixture listings and replace the two model-dependent tool calls with fixed
+responses, so they need no network calls or additional packages. The three
+existing checks in `test_duplicate_matching.py` also passed locally.
+
+### Earlier milestone examples (historical)
 
 **One full query**
 

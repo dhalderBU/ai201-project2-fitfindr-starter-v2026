@@ -17,7 +17,7 @@ from copy import deepcopy
 
 import config
 import trace
-from tools import search_listings, suggest_outfit, create_fit_card
+from tools import search_listings, suggest_outfit, create_fit_card, compare_price
 from generate import ModelUnavailable
 
 
@@ -42,6 +42,8 @@ def new_session(query: str, wardrobe: dict) -> dict:
         "parsed": {},                # description / size / max_price you pulled out of it
         "search_results": [],        # everything search_listings returned
         "selected_item": None,       # the one you chose — goes into suggest_outfit
+        "price_comparison": None,    # comparison with other category listings
+        "price_warning": None,       # set only for an above-average price
         "wardrobe": wardrobe,        # the user's wardrobe
         "outfit_suggestion": None,   # what suggest_outfit returned
         "fit_card": None,            # what create_fit_card returned
@@ -287,6 +289,39 @@ def run_agent(query: str, wardrobe: dict) -> dict:
         session["selected_item"] = selected
         trace.step("select_item", returned=session["selected_item"])
 
+        session["price_comparison"] = compare_price(session["selected_item"])
+        comparison = session["price_comparison"]
+        trace.step(
+            "compare_price",
+            inputs=session["selected_item"],
+            returned=comparison,
+            note=(
+                f"status={comparison['status']}; "
+                f"peers={comparison['comparison_count']}; "
+                f"average={comparison['average_price']}; "
+                f"difference={comparison['difference']}"
+            ),
+        )
+        if comparison["status"] == "above_average":
+            session["price_warning"] = (
+                f"This item is ${comparison['difference']:.2f} above the "
+                f"${comparison['average_price']:.2f} average of "
+                f"{comparison['comparison_count']} other "
+                f"{comparison['category']} listings in this dataset. "
+                "This is a broad category comparison, not a market valuation."
+            )
+            trace.step(
+                "above-average price branch",
+                returned=session["price_warning"],
+                note="show a price warning and continue to suggest_outfit",
+            )
+        else:
+            trace.step(
+                "price comparison: no warning",
+                returned=comparison["status"],
+                note="continue to suggest_outfit",
+            )
+
         try:
             session["outfit_suggestion"] = suggest_outfit(
                 session["selected_item"],
@@ -328,6 +363,8 @@ def run_agent(query: str, wardrobe: dict) -> dict:
 # ── running it directly ───────────────────────────────────────────────────────
 
 def _show(session: dict) -> None:
+    if session["price_warning"]:
+        print(f"  Price warning: {session['price_warning']}")
     if session["error"]:
         print(f"  stopped: {session['error']}")
         print(f"  fit_card is {session['fit_card']!r} — it should still be None here")

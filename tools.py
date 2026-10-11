@@ -1,5 +1,5 @@
 """
-The three FitFindr tools.
+The FitFindr tools.
 
 Each one is a standalone function you can call and test on its own, before any
 of them are wired into the loop. Build and test them one at a time — three
@@ -9,9 +9,7 @@ can't tell which layer is lying to you.
     search_listings(description, size, max_price)  → list[dict]
     suggest_outfit(new_item, wardrobe)             → str
     create_fit_card(outfit, new_item)              → str
-
-All three are stubs right now. They run and they do nothing — that's the
-starting position and it's deliberate.
+    compare_price(new_item)                       → dict
 
 ⚠️ Before you write any of them, fill in the **Tool Inventory** section of your
 README (Milestone 2). Four lines per tool: what it does, each input with its
@@ -353,3 +351,49 @@ def create_fit_card(outfit: str, new_item: dict) -> str:
         return card
 
     raise RuntimeError("create_fit_card exited without producing a caption")
+
+
+# ── Tool 4: compare_price ─────────────────────────────────────────────────────
+
+def compare_price(new_item: dict) -> dict:
+    """Compare a listing with the average price of its dataset category.
+
+    new_item is a complete listing dictionary from load_listings(). Peers are
+    all listings with the same category and a different ID, without search
+    size or budget filters. This is a dataset reference, not a market value.
+
+    Return listing_id, category, item_price, comparison_count, average_price,
+    difference (item price minus average), and status. The average and
+    difference are rounded to cents; status compares against that rounded
+    average. Without peers, average_price and difference are None, the count
+    is zero, and status is insufficient_data. No model call is needed.
+    """
+    prices = [
+        listing["price"]
+        for listing in load_listings()
+        if listing["category"] == new_item["category"]
+        and listing["id"] != new_item["id"]
+    ]
+    result = {
+        "listing_id": new_item["id"],
+        "category": new_item["category"],
+        "item_price": new_item["price"],
+        "comparison_count": len(prices),
+        "average_price": None,
+        "difference": None,
+        "status": "insufficient_data",
+    }
+    if not prices:
+        return result
+
+    average_price = round(sum(prices) / len(prices), 2)
+    difference = round(new_item["price"] - average_price, 2)
+    result["average_price"] = average_price
+    result["difference"] = difference
+    if difference > 0:
+        result["status"] = "above_average"
+    elif difference < 0:
+        result["status"] = "below_average"
+    else:
+        result["status"] = "at_average"
+    return result

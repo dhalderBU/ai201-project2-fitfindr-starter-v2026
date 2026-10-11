@@ -116,6 +116,19 @@ def _ask_one(query, wardrobe, use_trace):
     session = run_agent(query, wardrobe)
 
     print()
+    comparison = session["price_comparison"]
+    if comparison:
+        if comparison["average_price"] is None:
+            print("  Price comparison: no other listings in this category.")
+        else:
+            print(
+                f"  Category average: ${comparison['average_price']:.2f} "
+                f"across {comparison['comparison_count']} other "
+                f"{comparison['category']} listings in this dataset."
+            )
+        if session["price_warning"]:
+            print(f"  Price warning: {session['price_warning']}")
+        print()
     if session["error"]:
         print(f"  {session['error']}")
     else:

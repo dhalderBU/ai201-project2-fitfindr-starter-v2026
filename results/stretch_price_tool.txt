@@ -1,0 +1,9 @@
+{
+  "listing_id": "lst_004",
+  "category": "outerwear",
+  "item_price": 45.0,
+  "comparison_count": 7,
+  "average_price": 43.86,
+  "difference": 1.14,
+  "status": "above_average"
+}
