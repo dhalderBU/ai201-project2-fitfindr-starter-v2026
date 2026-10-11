@@ -22,7 +22,9 @@
 ---
 
 <!-- ──── Milestone 1   ───── -->
-### Three fields in the listings file
+### Three fields in the listings file :
+
+Three files in the listings file are :
 - Title
 - Description 
 - Size
@@ -875,7 +877,13 @@ Why this target (proposed): [Add why the empty-wardrobe case matters, such as ne
 Before submitting, confirm that {"items": []} is your real empty-wardrobe format, and keep the fit and card-quality rules consistent with criterion 4 so the two don’t conflict.
 
 - *What I changed:*
-I took the guidance and I chnged the Criteria accordingly. The idea was mine but I wrote and have something and claude commented on it and i used the changed wording for the criteria
+I took the guidance and I changed the Criteria accordingly. The idea was mine but I wrote and have something and claude commented on it and i used the changed wording for the criteria
+
+### I have also implemented the three stretch Features
+- A forth Tool
+- A second Branch
+- Style memory
+
 
 <!-- ═══════════════════════ UNIT 4 — THE TEST ═══════════════════════
 
