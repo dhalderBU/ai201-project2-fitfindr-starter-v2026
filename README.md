@@ -78,6 +78,31 @@ The Tool Inventory, Planning Loop, and Sample Run sections explain the changes
 and include terminal evidence of the fourth-tool call and the above-average
 branch. Style memory is not part of this declaration.
 
+## Planned Stretch Feature — Style Memory
+
+This declaration is being committed before style memory is implemented.
+
+FitFindr will maintain one editable wardrobe. On first use it will initialize
+that wardrobe from the existing `example_wardrobe` in
+`data/wardrobe_schema.json`. The CLI will provide `wardrobe list`,
+`wardrobe add`, and `wardrobe remove --id ID`. Add and remove operations will
+save changes automatically, and later `ask` runs will load those changes for
+outfit suggestions and the existing wardrobe-duplicate branch. Finding an
+item will not automatically mark it as owned.
+
+The application will manage its storage in `.fitfindr/wardrobe.json`; users
+will not have to create or supply a second wardrobe file. The schema/example
+file will remain the initial template. Saved empty wardrobes will stay empty.
+`ask --empty-wardrobe` will bypass memory for that run without changing it.
+Invalid saved data and unknown removal IDs will produce actionable errors.
+The implementation will use Python's standard library and add no packages.
+
+The README will include real output from two separate CLI processes: the first
+adds and saves an owned item, and the second loads the updated wardrobe and
+uses it in the agent. Evidence will show that the saved item affects the
+duplicate branch or outfit suggestion. Runtime wardrobe storage will be
+ignored by Git; demonstration output will be committed as text.
+
 ## What This Does
 
 <!-- Three or four sentences: what a user asks for, and what they get back. -->
