@@ -19,6 +19,7 @@ telling you why. Single quotes are literal in PowerShell, bash and zsh alike.
 
 import argparse
 import sys
+import trace
 
 import config
 
@@ -39,6 +40,8 @@ EXAMPLE_QUERIES = [
 def cmd_fields(args):
     """Milestone 1 — you can't filter on a field that isn't there."""
     from utils.data_loader import load_listings, get_example_wardrobe
+    # adding a trace and try .. remove trace ... Deb
+    #trace.step("cmd_dh fields", inputs=args, returned=None)
 
     listing = load_listings()[0]
     print("A listing has these fields:\n")
@@ -108,8 +111,7 @@ def _ask_one(query, wardrobe, use_trace):
     from agent import run_agent
     import trace as trace_module
 
-    if use_trace:
-        trace_module.start_trace()
+    trace_module.start_trace(enabled=use_trace)
 
     session = run_agent(query, wardrobe)
 

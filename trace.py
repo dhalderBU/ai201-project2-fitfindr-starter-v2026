@@ -25,17 +25,30 @@ MCP call visible among them. If you moved `search_listings` onto MCP, say so
 in the step name — `search_listings (via MCP)` is enough.
 """
 
+import datetime as dt
+import time
+
 import config
 
 _lines: list[str] = []
 _step_number = 0
+_enabled = False
+_trace_started_at = 0.0
+_last_step_at = 0.0
 
 
-def start_trace() -> None:
-    """Clear the trace. Call this at the start of each run."""
-    global _step_number
+def start_trace(enabled: bool = True) -> None:
+    """Clear the trace and enable or disable trace output for the run."""
+    global _step_number, _enabled, _trace_started_at, _last_step_at
     _lines.clear()
     _step_number = 0
+    _enabled = enabled
+    _trace_started_at = time.perf_counter()
+    _last_step_at = _trace_started_at
+    if enabled:
+        generated_at = dt.datetime.now().astimezone().isoformat(timespec="seconds")
+        _lines.append(f"Trace generated at: {generated_at}")
+        print(_lines[-1], flush=True)
 
 
 def step(name: str, inputs=None, returned=None, note: str = "") -> None:
@@ -49,10 +62,22 @@ def step(name: str, inputs=None, returned=None, note: str = "") -> None:
                   list of listings is fine.
         note:     an optional word on why, e.g. "branch: empty, stopping".
     """
-    global _step_number
+    if not _enabled:
+        return
+
+    global _step_number, _last_step_at
     _step_number += 1
 
-    line = f"[{_step_number}] {name}"
+    now = time.perf_counter()
+    elapsed = now - _trace_started_at
+    step_duration = now - _last_step_at
+    _last_step_at = now
+    generated_at = dt.datetime.now().astimezone().isoformat(timespec="seconds")
+
+    line = (
+        f"[{_step_number}] {generated_at} +{elapsed:.3f}s "
+        f"(step {step_duration:.3f}s) {name}"
+    )
     if inputs is not None:
         line += f"\n      in:  {_short(inputs)}"
     if returned is not None:

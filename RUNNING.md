@@ -54,6 +54,7 @@ python app.py fields                    # what a listing and a wardrobe item hol
 python app.py listings --full -n 6      # read six listings all the way through
 python app.py examples                  # queries worth trying
 python app.py ask 'vintage graphic tee under $30'
+python3 app.py ask --trace 'vintage graphic tee under $30' > trace.txt 2>&1 # will save it to trace.txt. Will log data and time as well
 ```
 
 > **Quote your queries with single quotes**, on every operating system. In
