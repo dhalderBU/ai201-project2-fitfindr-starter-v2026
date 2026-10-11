@@ -21,11 +21,64 @@ the description has to say what is *in* the list.
 """
 
 import config  # noqa: F401 — you'll use this in search_listings
+import trace
 from generate import generate
 from utils.data_loader import load_listings
-
+import re
 
 # ── Tool 1: search_listings ───────────────────────────────────────────────────
+_STOPWORDS = {
+    "a",
+    "an",
+    "and",
+    "are",
+    "as",
+    "at",
+    "be",
+    "by",
+    "for",
+    "from",
+    "in",
+    "is",
+    "it",
+    "of",
+    "on",
+    "or",
+    "the",
+    "to",
+    "with",
+
+}
+
+_UNIVERSAL_SIZES = {"ONE SIZE", "FREE SIZE", "OS", "OSFA"}
+
+
+def _keywords(test: str) -> set[str]:
+    """Return lowercase, non-stopword words from a string."""
+    return {
+        word
+        for word in re.findall(r"[a-z0-9]+", (test or "").lower())
+        if word not in _STOPWORDS and len(word) > 1
+    }
+
+
+def _size_tokens(size: str) -> set[str]:
+    """Return uppercase size parts, excluding parenthetical notes."""
+    cleaned = re.sub(r"\([^)]*\)", "", size or "")
+    parts = [part.strip().upper() for part in cleaned.split("/")]
+    return {part for part in parts if part}
+
+
+def _size_matches(wanted: str, listing_size: str) -> bool:
+    """Return whether every requested size part appears in a listing size."""
+    wanted_tokens = _size_tokens(wanted)
+    listing_tokens = _size_tokens(listing_size)
+    if not wanted_tokens:
+        return True
+    if listing_tokens & _UNIVERSAL_SIZES:
+        return True
+    return wanted_tokens <= listing_tokens
+
 
 def search_listings(
     description: str,
@@ -78,8 +131,26 @@ def search_listings(
     Test it from a terminal before you move on:
         python -c "from tools import search_listings; print(search_listings('graphic tee', max_price=30))"
     """
-    # TODO: replace this with your implementation
-    return []
+    keywords = _keywords(description)
+    matches: list[tuple[int, dict]] = []
+
+    for listing in load_listings():
+        if max_price is not None and listing["price"] > max_price:
+            continue
+
+        if size and not _size_matches(size, str(listing["size"])):
+            continue
+
+        listing_words = _keywords(listing["description"])
+        score = len(keywords & listing_words)
+        if score:
+            matches.append((score, listing))
+
+    matches.sort(key=lambda match: match[0], reverse=True)
+    return [
+        listing
+        for _, listing in matches[: config.SEARCH_RESULT_LIMIT]
+    ]
 
 
 # ── Tool 2: suggest_outfit ────────────────────────────────────────────────────
@@ -112,8 +183,58 @@ def suggest_outfit(new_item: dict, wardrobe: dict) -> str:
     Test it from a terminal before you move on:
         python -c "from tools import suggest_outfit; from utils.data_loader import get_example_wardrobe, load_listings; print(suggest_outfit(load_listings()[0], get_example_wardrobe()))"
     """
-    # TODO: replace this with your implementation
-    return ""
+    items = wardrobe.get("items", [])
+    item_details = (
+        f"Title: {new_item.get('title', 'Unknown item')}\n"
+        f"Description: {new_item.get('description', '')}\n"
+        f"Category: {new_item.get('category', '')}\n"
+        f"Style tags: {', '.join(new_item.get('style_tags', []))}\n"
+        f"Colors: {', '.join(new_item.get('colors', []))}\n"
+        f"Price: ${new_item.get('price', 'unknown')}"
+    )
+
+    if not items:
+        prompt = (
+            "Suggest one or two wearable outfits for this thrifted item. "
+            "The user has no saved wardrobe, so recommend generally available "
+            "pieces and explain why they work together.\n\n"
+            f"New item:\n{item_details}"
+        )
+        system = (
+            "Give practical, specific styling advice. Mention silhouettes, "
+            "colors, shoes, and accessories when useful. Keep the response "
+            "concise and non-empty. Never describe the thrifted item as "
+            "something the user already owns; when the user has no saved "
+            "wardrobe, treat it as a suggested purchase."
+        )
+    else:
+        wardrobe_details = "\n".join(
+            (
+                f"- {item.get('name', 'Unnamed item')} "
+                f"(category: {item.get('category', 'unknown')}; "
+                f"colors: {', '.join(item.get('colors', []))}; "
+                f"style: {', '.join(item.get('style_tags', []))}; "
+                f"notes: {item.get('notes') or 'none'})"
+            )
+            for item in items
+        )
+        prompt = (
+            "Suggest one or two outfits using the new thrifted item and only "
+            "pieces from the user's wardrobe below. Name the wardrobe pieces "
+            "directly and explain the styling briefly.\n\n"
+            f"New item:\n{item_details}\n\n"
+            f"User wardrobe:\n{wardrobe_details}"
+        )
+        system = (
+            "Use the user's existing wardrobe items rather than inventing "
+            "replacement pieces. Give practical, specific, concise outfit "
+            "suggestions. Only describe the new thrifted item as owned if the "
+            "user's wardrobe explicitly includes it; otherwise frame it as a "
+            "purchase idea rather than something they already own."
+        )
+
+    return generate(prompt, system=system)
+    
 
 
 # ── Tool 3: create_fit_card ───────────────────────────────────────────────────
@@ -152,5 +273,83 @@ def create_fit_card(outfit: str, new_item: dict) -> str:
     Test it from a terminal before you move on:
         python -c "from tools import create_fit_card; from utils.data_loader import load_listings; print(create_fit_card('jeans and white sneakers', load_listings()[0]))"
     """
-    # TODO: replace this with your implementation
-    return ""
+    if not outfit.strip():
+        return "I cannot create a fit card until an outfit suggestion is provided."
+
+    ownership_markers = (
+        "already own",
+        "already owns",
+        "already in my wardrobe",
+        "already in my closet",
+        "in my wardrobe",
+        "in my closet",
+        "already in my rotation",
+        "my own",
+    )
+    outfit_lower = outfit.lower()
+    explicitly_owned = any(marker in outfit_lower for marker in ownership_markers)
+
+    title = new_item.get("title", "this thrifted find")
+    price = new_item.get("price", "unknown")
+    platform = new_item.get("platform", "the marketplace")
+    description = new_item.get("description", "")
+    style_tags = ", ".join(new_item.get("style_tags", []))
+
+    ownership_rule = (
+        "The outfit explicitly identifies the item as already owned or in the "
+        "user's wardrobe, so it is okay to describe it as owned."
+        if explicitly_owned
+        else "Do not present the item as something the user already owns. "
+        "Treat it as a suggested purchase or styling idea unless the outfit "
+        "explicitly says otherwise."
+    )
+
+    prompt = (
+        "Write a social-media fit-card caption for the thrifted item and outfit "
+        "below. Make it two to four sentences, sound like a real person "
+        "celebrating a find, and describe the outfit's specific vibe. Keep the "
+        "caption to 60 words or fewer, counting hashtags as words. Mention "
+        f"the item title '{title}', the price '${price}', and the platform "
+        f"'{platform}' exactly once each. Do not write a product listing or "
+        "invent details that are not provided.\n\n"
+        f"Ownership rule: {ownership_rule}\n\n"
+        f"Item: {title}\n"
+        f"Description: {description}\n"
+        f"Style tags: {style_tags or 'none provided'}\n"
+        f"Price: ${price}\n"
+        f"Platform: {platform}\n"
+        f"Outfit suggestion: {outfit.strip()}"
+    )
+    system = (
+        "Write one polished, concise caption in a warm, personal voice. "
+        "Keep it to 60 words or fewer. Return only the caption."
+    )
+    for attempt in range(config.MAX_RETRIES):
+        card = generate(prompt, system=system, cache=False).strip()
+        if not card:
+            trace.step(
+                "create_fit_card retry",
+                returned="blank caption",
+                note=(
+                    f"attempt {attempt + 1}/{config.MAX_RETRIES}; "
+                    "retrying because the model returned blank output"
+                ),
+            )
+            if attempt == config.MAX_RETRIES - 1:
+                raise ValueError(
+                    "create_fit_card returned a blank caption after "
+                    f"{config.MAX_RETRIES} attempts"
+                )
+            continue
+
+        word_count = len(card.split())
+        if word_count > 60:
+            trace.step(
+                "create_fit_card length check",
+                returned={"word_count": word_count, "limit": 60},
+                note="caption exceeded 60 words; trimming to the first 60 words",
+            )
+            card = " ".join(card.split()[:60])
+        return card
+
+    raise RuntimeError("create_fit_card exited without producing a caption")
