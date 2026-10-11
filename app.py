@@ -8,6 +8,9 @@ FitFindr — command line.
     python app.py listings                browse the data  (Milestone 1)
     python app.py fields                  what fields a listing has
     python app.py examples                queries worth trying, including a dud
+    python app.py wardrobe list           view your saved wardrobe
+    python app.py wardrobe add --name 'Black jeans' --category bottoms --colors black
+    python app.py wardrobe remove --id w_011
 
 Add --trace to any `ask` to print the loop step by step.
 
@@ -107,13 +110,20 @@ def cmd_examples(args):
     )
 
 
-def _ask_one(query, wardrobe, use_trace):
+def _ask_one(query, wardrobe, use_trace, wardrobe_source="provided"):
     from agent import run_agent
     import trace as trace_module
 
     trace_module.start_trace(enabled=use_trace)
+    trace_module.step(
+        "wardrobe memory",
+        returned=f"source={wardrobe_source}; items={len(wardrobe['items'])}",
+        note="; ".join(f"{item.get('id', '?')}: {item.get('name', '?')}"
+                       for item in wardrobe["items"]),
+    )
 
     session = run_agent(query, wardrobe)
+    session["wardrobe_source"] = wardrobe_source
 
     print()
     comparison = session["price_comparison"]
@@ -151,16 +161,20 @@ def _ask_one(query, wardrobe, use_trace):
 
 
 def cmd_ask(args):
-    from utils.data_loader import get_example_wardrobe, get_empty_wardrobe
+    from utils.data_loader import get_empty_wardrobe, load_wardrobe
     import generate
 
-    wardrobe = get_empty_wardrobe() if args.empty_wardrobe else get_example_wardrobe()
     if args.empty_wardrobe:
-        print("(running with an empty wardrobe)")
+        wardrobe, source = get_empty_wardrobe(), "empty override"
+        print("(running with an empty wardrobe; saved wardrobe unchanged)")
+    else:
+        wardrobe, source = load_wardrobe()
+        action = "Initialized and saved" if source == "initialized" else "Loaded saved"
+        print(f"({action} wardrobe: {len(wardrobe['items'])} items)")
 
     try:
         if args.query:
-            _ask_one(args.query, wardrobe, args.trace)
+            _ask_one(args.query, wardrobe, args.trace, source)
         else:
             print("Ask for something, or press Enter on an empty line to quit.\n")
             while True:
@@ -171,12 +185,43 @@ def cmd_ask(args):
                     break
                 if not query:
                     break
-                _ask_one(query, wardrobe, args.trace)
+                # Pick up edits made by a separate wardrobe command between queries.
+                if not args.empty_wardrobe:
+                    wardrobe, source = load_wardrobe()
+                _ask_one(query, wardrobe, args.trace, source)
     finally:
         print(generate.usage())
 
 
+def cmd_wardrobe(args):
+    from utils.data_loader import (
+        add_wardrobe_item, load_wardrobe, remove_wardrobe_item,
+    )
+
+    if args.wardrobe_action == "add":
+        item, count = add_wardrobe_item(
+            args.name, args.category, args.colors, args.style_tags, args.notes,
+        )
+        print(f"Added {item['id']}: {item['name']}")
+        print(f"Saved wardrobe: {count} items. Future searches will use this wardrobe.")
+    elif args.wardrobe_action == "remove":
+        item, count = remove_wardrobe_item(args.id)
+        print(f"Removed {item['id']}: {item['name']}")
+        print(f"Saved wardrobe: {count} items. Future searches will use this wardrobe.")
+    else:
+        wardrobe, source = load_wardrobe()
+        action = "Initialized and saved" if source == "initialized" else "Loaded saved"
+        print(f"{action} wardrobe: {len(wardrobe['items'])} items\n")
+        for item in wardrobe["items"]:
+            print(f"{item['id']}  {item['name']} | {item['category']} | "
+                  f"colors: {', '.join(item['colors']) or 'unspecified'}")
+        if not wardrobe["items"]:
+            print("Your wardrobe is empty. Add a piece with 'python app.py wardrobe add --help'.")
+
+
 def build_parser():
+    from utils.data_loader import WARDROBE_CATEGORIES
+
     parser = argparse.ArgumentParser(
         prog="app.py",
         description="FitFindr",
@@ -195,6 +240,19 @@ def build_parser():
 
     p_ex = sub.add_parser("examples", help="queries worth trying")
     p_ex.set_defaults(func=cmd_examples)
+
+    p_wardrobe = sub.add_parser("wardrobe", help="list, add, or remove owned clothing")
+    wardrobe_sub = p_wardrobe.add_subparsers(dest="wardrobe_action", required=True)
+    wardrobe_sub.add_parser("list", help="show your saved wardrobe")
+    p_add = wardrobe_sub.add_parser("add", help="add an owned item and save it")
+    p_add.add_argument("--name", required=True)
+    p_add.add_argument("--category", choices=WARDROBE_CATEGORIES, required=True)
+    p_add.add_argument("--colors", nargs="+", required=True)
+    p_add.add_argument("--style-tags", nargs="+", default=[])
+    p_add.add_argument("--notes")
+    p_remove = wardrobe_sub.add_parser("remove", help="remove an owned item and save")
+    p_remove.add_argument("--id", required=True, help="item ID from wardrobe list")
+    p_wardrobe.set_defaults(func=cmd_wardrobe)
 
     p_ask = sub.add_parser("ask", help="run the agent")
     p_ask.add_argument("query", nargs="?")

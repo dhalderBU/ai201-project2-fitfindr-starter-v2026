@@ -302,6 +302,7 @@ def run_agent(query: str, wardrobe: dict) -> dict:
                 f"difference={comparison['difference']}"
             ),
         )
+        # Second Branch (stretch): warn when the price exceeds the category average.
         if comparison["status"] == "above_average":
             session["price_warning"] = (
                 f"This item is ${comparison['difference']:.2f} above the "
@@ -311,7 +312,7 @@ def run_agent(query: str, wardrobe: dict) -> dict:
                 "This is a broad category comparison, not a market valuation."
             )
             trace.step(
-                "above-average price branch",
+                "above-average price branch (Second Branch)",
                 returned=session["price_warning"],
                 note="show a price warning and continue to suggest_outfit",
             )

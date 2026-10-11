@@ -6,6 +6,7 @@ the files each time.
 
 import json
 import os
+import tempfile
 from typing import Optional
 
 # Resolve the path to the data directory relative to this file
@@ -84,6 +85,138 @@ def get_empty_wardrobe() -> dict:
         wardrobe — the only difference is that 'items' is empty.
     """
     return _wardrobe("empty_wardrobe")
+
+
+# --- Style memory: one editable wardrobe saved between CLI runs ---
+
+WARDROBE_CATEGORIES = ("tops", "bottoms", "outerwear", "shoes", "accessories")
+
+
+def wardrobe_path() -> str:
+    """Return the local storage path; an environment override isolates tests."""
+    default = os.path.join(_DATA_DIR, "..", ".fitfindr", "wardrobe.json")
+    return os.path.abspath(os.path.expanduser(
+        os.environ.get("FITFINDR_WARDROBE_PATH", default)
+    ))
+
+
+def _validate_wardrobe(wardrobe: dict) -> None:
+    """Reject malformed memory before passing it to the agent or saving it."""
+    if not isinstance(wardrobe, dict) or not isinstance(wardrobe.get("items"), list):
+        raise ValueError("Wardrobe must contain an 'items' list.")
+    seen_ids = set()
+    for item in wardrobe["items"]:
+        if not isinstance(item, dict):
+            raise ValueError("Each wardrobe item must be an object.")
+        for field in ("id", "name"):
+            if not isinstance(item.get(field), str) or not item[field].strip():
+                raise ValueError(f"Each wardrobe item needs a nonblank {field}.")
+        if item["id"] in seen_ids:
+            raise ValueError(f"Duplicate wardrobe ID: {item['id']}.")
+        seen_ids.add(item["id"])
+        if item.get("category") not in WARDROBE_CATEGORIES:
+            raise ValueError(f"Category must be one of: {', '.join(WARDROBE_CATEGORIES)}.")
+        for field in ("colors", "style_tags"):
+            values = item.get(field)
+            if not isinstance(values, list) or any(
+                not isinstance(value, str) or not value.strip() for value in values
+            ):
+                raise ValueError(f"Item {field} must be a list of nonblank strings.")
+        if item.get("notes") is not None and not isinstance(item["notes"], str):
+            raise ValueError("Item notes must be text or null.")
+
+
+def save_wardrobe(wardrobe: dict) -> None:
+    """Validate and replace the saved wardrobe without a partial JSON write."""
+    _validate_wardrobe(wardrobe)
+    path = wardrobe_path()
+    directory = os.path.dirname(path)
+    os.makedirs(directory, exist_ok=True)
+    temporary_path = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w", encoding="utf-8", dir=directory, suffix=".tmp", delete=False
+        ) as temporary:
+            temporary_path = temporary.name
+            json.dump(wardrobe, temporary, indent=2, ensure_ascii=False)
+            temporary.write("\n")
+        os.replace(temporary_path, path)
+    finally:
+        if temporary_path and os.path.exists(temporary_path):
+            os.remove(temporary_path)
+
+
+def load_wardrobe() -> tuple[dict, str]:
+    """Load saved memory, initializing once from the existing example.
+
+    Return (wardrobe, source), where source is 'initialized' or 'saved'. An
+    existing empty wardrobe is valid memory and is never refilled automatically.
+    Invalid memory raises a readable error and is not overwritten.
+    """
+    path = wardrobe_path()
+    try:
+        with open(path, encoding="utf-8") as saved:
+            wardrobe = json.load(saved)
+    except FileNotFoundError:
+        wardrobe = get_example_wardrobe()
+        save_wardrobe(wardrobe)
+        return wardrobe, "initialized"
+    except (json.JSONDecodeError, UnicodeError) as exc:
+        raise ValueError(f"Cannot read saved wardrobe at {path}. Fix its JSON and retry.") from exc
+    try:
+        _validate_wardrobe(wardrobe)
+    except ValueError as exc:
+        raise ValueError(f"Invalid saved wardrobe at {path}: {exc} Fix it and retry.") from exc
+    return wardrobe, "saved"
+
+
+def add_wardrobe_item(
+    name: str,
+    category: str,
+    colors: list[str],
+    style_tags: Optional[list[str]] = None,
+    notes: Optional[str] = None,
+) -> tuple[dict, int]:
+    """Add an owned piece, save it, and return (new item, total item count)."""
+    item = {
+        "id": "pending",
+        "name": name.strip(),
+        "category": category,
+        "colors": [color.strip() for color in colors],
+        "style_tags": [tag.strip() for tag in (style_tags or [])],
+        "notes": notes.strip() if notes else None,
+    }
+    _validate_wardrobe({"items": [item]})
+    wardrobe, _ = load_wardrobe()
+    for existing in wardrobe["items"]:
+        if (
+            " ".join(existing["name"].split()).casefold()
+            == " ".join(item["name"].split()).casefold()
+            and existing["category"] == item["category"]
+            and {color.casefold() for color in existing["colors"]}
+            == {color.casefold() for color in item["colors"]}
+        ):
+            raise ValueError(f"This item is already saved as {existing['id']}.")
+    used_numbers = [
+        int(existing["id"][2:])
+        for existing in wardrobe["items"]
+        if existing["id"].startswith("w_") and existing["id"][2:].isdecimal()
+    ]
+    item["id"] = f"w_{max(used_numbers, default=0) + 1:03d}"
+    wardrobe["items"].append(item)
+    save_wardrobe(wardrobe)
+    return item, len(wardrobe["items"])
+
+
+def remove_wardrobe_item(item_id: str) -> tuple[dict, int]:
+    """Remove an owned piece by ID, save, and return (removed item, count)."""
+    wardrobe, _ = load_wardrobe()
+    for index, item in enumerate(wardrobe["items"]):
+        if item["id"] == item_id:
+            wardrobe["items"].pop(index)
+            save_wardrobe(wardrobe)
+            return item, len(wardrobe["items"])
+    raise ValueError(f"No wardrobe item has ID {item_id!r}. Run 'python app.py wardrobe list'.")
 
 
 # --- Quick sanity check ---

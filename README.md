@@ -80,7 +80,10 @@ branch. Style memory is not part of this declaration.
 
 ## Planned Stretch Feature — Style Memory
 
-This declaration is being committed before style memory is implemented.
+This feature was declared before implementation in commit `56d0897`.
+The planned behavior below is now implemented in `utils/data_loader.py`
+and exposed by `app.py`; commands and actual two-run evidence appear
+under **Style memory — one editable wardrobe**.
 
 FitFindr will maintain one editable wardrobe. On first use it will initialize
 that wardrobe from the existing `example_wardrobe` in
@@ -394,6 +397,180 @@ handoffs, CLI display, and the empty-search/all-owned stops. These tests use
 fixture listings and replace the two model-dependent tool calls with fixed
 responses, so they need no network calls or additional packages. The three
 existing checks in `test_duplicate_matching.py` also passed locally.
+
+### Style memory — one editable wardrobe (Stretch feature 3)
+
+The advance declaration is in commit
+[`56d0897`](https://github.com/dhalderBU/ai201-project2-fitfindr-starter-v2026/commit/56d0897).
+The CLI starts with the existing ten example items and maintains one saved
+wardrobe. You do not need to prepare or pass another JSON file.
+
+```bash
+python app.py wardrobe list
+python app.py wardrobe add --name 'Purple trousers' --category bottoms --colors purple --style-tags casual
+python app.py wardrobe remove --id w_011
+python app.py ask 'vintage graphic tee under $30' --trace
+```
+
+Use the ID printed by `add` or `list` when removing an item; `w_011` above is
+an example. Categories are `tops`, `bottoms`, `outerwear`, `shoes`, and
+`accessories`. Multiple colors and style tags are accepted, and `--notes`
+can add optional text. Quote multiword values, for example `--colors 'dark blue'`.
+Only add pieces you own; a search recommendation does not add an item.
+
+**Where it is implemented:** All storage helpers are in
+`utils/data_loader.py`: `load_wardrobe()` returns `(wardrobe, source)`,
+`save_wardrobe(wardrobe)` validates and saves it, and `add_wardrobe_item(...)`
+and `remove_wardrobe_item(id)` save the change and return `(item, total_count)`.
+`app.py::cmd_wardrobe` exposes those operations. `app.py::cmd_ask` loads the
+saved wardrobe and passes it into `run_agent`; the returned session records
+`wardrobe_source`, and the trace names the loaded items. Interactive searches
+reload memory between queries so changes from another CLI command are picked up.
+
+**What changed:** Previously every CLI invocation reloaded the fixed example.
+Now the first invocation initializes `.fitfindr/wardrobe.json` from that example,
+and subsequent invocations use the saved contents. Removing all items leaves
+an empty wardrobe; it does not repopulate the example. `--empty-wardrobe`
+bypasses saved memory for a single run without changing it. Invalid memory,
+blank item names, duplicate items, invalid categories, and unknown removal IDs
+produce errors. Saves use a temporary file and replacement to avoid partial
+JSON writes. Runtime memory is ignored by Git. No additional package is needed.
+The existing explicit wardrobe argument to `run_agent` still supports isolated
+evaluation; automatic persistence is provided by the CLI.
+
+**Two-run evidence:** The following are actual outputs from separate CLI
+processes using the same saved wardrobe. To isolate the demonstration from a
+user's real edits, `FITFINDR_WARDROBE_PATH` pointed to one temporary storage file
+throughout these commands; normal use needs no override. The first command
+initialized from the existing example and added the tee. The second command
+supplied no wardrobe details and automatically loaded what the first saved.
+
+**Run 1 — add an owned item and save**
+
+```bash
+python app.py wardrobe add --name 'Graphic Tee — 2003 Tour Bootleg Style' --category tops --colors black --style-tags vintage graphic
+```
+
+```text
+Added w_011: Graphic Tee — 2003 Tour Bootleg Style
+Saved wardrobe: 11 items. Future searches will use this wardrobe.
+```
+
+**Run 2 — search using the remembered wardrobe**
+
+```bash
+python app.py ask 'vintage graphic tee under $30' --trace
+```
+
+```text
+(Loaded saved wardrobe: 11 items)
+Trace generated at: 2026-10-11T02:10:31-07:00
+[1] 2026-10-11T02:10:31-07:00 +0.000s (step 0.000s) wardrobe memory
+      out: source=saved; items=11
+      →    w_001: Baggy straight-leg jeans, dark wash; w_002: Wide-leg khaki trousers; w_003: White ribbed tank top; w_004: Oversized grey crewneck sweatshirt; w_005: Black cropped zip hoodie; w_006: Vintage black denim jacket; w_007: Chunky white sneakers; w_008: Black combat boots; w_009: Brown leather belt; w_010: Black crossbody bag; w_011: Graphic Tee — 2003 Tour Bootleg Style
+[2] 2026-10-11T02:10:31-07:00 +0.000s (step 0.000s) parse_query
+      in:  vintage graphic tee under $30
+      out: dict with keys: description, size, max_price
+[3] 2026-10-11T02:10:31-07:00 +0.001s (step 0.001s) search_listings
+      in:  dict with keys: description, size, max_price
+      out: 8 items: Graphic Tee — 2003 Tour Bootleg Style, Y2K Baby Tee — Butterfly Print, Vintage Graphic Hoodie — Faded Black … +5 more
+[4] 2026-10-11T02:10:31-07:00 +0.001s (step 0.000s) skip wardrobe duplicate
+      in:  Graphic Tee — 2003 Tour Bootleg Style ($24.0, depop)
+      out: skipped
+      →    category, meaningful name, and color match the wardrobe; size and price ignored
+[5] 2026-10-11T02:10:31-07:00 +0.001s (step 0.000s) select_item
+      out: Y2K Baby Tee — Butterfly Print ($18.0, depop)
+[6] 2026-10-11T02:10:31-07:00 +0.001s (step 0.000s) compare_price
+      in:  Y2K Baby Tee — Butterfly Print ($18.0, depop)
+      out: dict with keys: listing_id, category, item_price, comparison_count, average_price, difference
+      →    status=below_average; peers=14; average=22.0; difference=-4.0
+[7] 2026-10-11T02:10:31-07:00 +0.001s (step 0.000s) price comparison: no warning
+      out: below_average
+      →    continue to suggest_outfit
+[8] 2026-10-11T02:10:34-07:00 +2.688s (step 2.686s) suggest_outfit
+      in:  Y2K Baby Tee — Butterfly Print ($18.0, depop)
+      out: Here are two practical outfit suggestions using the new Y2K butterfly baby tee and items from your wardrobe:  …
+[9] 2026-10-11T02:10:35-07:00 +3.345s (step 0.657s) create_fit_card
+      in:  dict with keys: outfit, new_item
+      out: Obsessed with this Y2K Baby Tee — Butterfly Print! At just $18.0 on depop, it’s the ultimate nostalgic piece t…
+
+  Category average: $22.00 across 14 other tops listings in this dataset.
+
+  Found:    Y2K Baby Tee — Butterfly Print — $18.0 on depop
+
+  Outfit:   Here are two practical outfit suggestions using the new Y2K butterfly baby tee and items from your wardrobe:
+
+### Outfit 1: Casual Y2K Streetwear
+* **Top:** Y2K Butterfly Baby Tee
+* **Bottoms:** Baggy straight-leg jeans, dark wash
+* **Outerwear:** Black cropped zip hoodie
+* **Shoes:** Chunky white sneakers
+* **Accessories:** Black crossbody bag
+
+**Styling:** Let the fitted crop of the butterfly tee sit high against the dark wash baggy jeans for a classic early-2000s proportion play. Layer the black cropped zip hoodie unzipped over top to keep the graphic visible, and finish with the chunky white sneakers and black crossbody bag for an effortless streetwear look.
+
+---
+
+### Outfit 2: Contrast Minimal-Vintage
+* **Top:** Y2K Butterfly Baby Tee
+* **Bottoms:** Wide-leg khaki trousers
+* **Outerwear:** Vintage black denim jacket
+* **Shoes:** Black combat boots
+* **Accessories:** Brown leather belt, Black crossbody bag
+
+**Styling:** Tuck the fitted pink-and-purple butterfly tee into the wide-leg khaki trousers, cinched with the brown leather belt to add an earth-tone grounding element. Throw on the slightly cropped vintage black denim jacket and anchor the outfit with black combat boots to mix feminine Y2K details with grungy, utilitarian outerwear.
+
+  Fit card: Obsessed with this Y2K Baby Tee — Butterfly Print! At just $18.0 on depop, it’s the ultimate nostalgic piece to style with baggy jeans or contrast khaki trousers. Get that effortless, early-2000s streetwear vibe. #y2k #vintage #depop
+
+2 model calls this session, 1047 prompt + 350 output tokens
+```
+
+The trace identifies saved item `w_011`, skips the matching `lst_006` graphic
+tee, and selects `lst_002` (the butterfly tee). Without that saved addition,
+the first unowned match in the original wardrobe is `lst_006`. This shows the
+second run's selection is shaped by what the first stored, independently of
+variation in model wording. The saved wardrobe also reaches `suggest_outfit`.
+This live run completed both model calls with the existing local model settings.
+
+**Removal persists too**
+
+```bash
+python app.py wardrobe remove --id w_011
+```
+
+```text
+Removed w_011: Graphic Tee — 2003 Tour Bootleg Style
+Saved wardrobe: 10 items. Future searches will use this wardrobe.
+```
+
+A separate `python app.py wardrobe list` process then printed:
+
+```text
+Loaded saved wardrobe: 10 items
+
+w_001  Baggy straight-leg jeans, dark wash | bottoms | colors: dark blue, indigo
+w_002  Wide-leg khaki trousers | bottoms | colors: khaki, tan
+w_003  White ribbed tank top | tops | colors: white
+w_004  Oversized grey crewneck sweatshirt | tops | colors: grey, charcoal
+w_005  Black cropped zip hoodie | tops | colors: black
+w_006  Vintage black denim jacket | outerwear | colors: black
+w_007  Chunky white sneakers | shoes | colors: white
+w_008  Black combat boots | shoes | colors: black
+w_009  Brown leather belt | accessories | colors: brown
+w_010  Black crossbody bag | accessories | colors: black
+```
+
+Full evidence: [add](results/style_memory_run1_add.txt),
+[search](results/style_memory_run2_ask.txt),
+[remove](results/style_memory_run3_remove.txt), and
+[list](results/style_memory_run4_list.txt).
+
+**Verification:** `python -m unittest -v test_wardrobe_memory test_price_comparison`
+passed all 18 tests. Coverage includes persistence across separate processes,
+saved-item effects on agent selection, removal, preservation of other items,
+empty wardrobes, the empty override, invalid data, failed writes, duplicate
+entries, and the existing price-comparison branches. The tests use isolated
+storage and fixed model responses; the run above used the real model adapter.
 
 ### Earlier milestone examples (historical)
 

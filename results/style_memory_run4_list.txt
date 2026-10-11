@@ -1,0 +1,12 @@
+Loaded saved wardrobe: 10 items
+
+w_001  Baggy straight-leg jeans, dark wash | bottoms | colors: dark blue, indigo
+w_002  Wide-leg khaki trousers | bottoms | colors: khaki, tan
+w_003  White ribbed tank top | tops | colors: white
+w_004  Oversized grey crewneck sweatshirt | tops | colors: grey, charcoal
+w_005  Black cropped zip hoodie | tops | colors: black
+w_006  Vintage black denim jacket | outerwear | colors: black
+w_007  Chunky white sneakers | shoes | colors: white
+w_008  Black combat boots | shoes | colors: black
+w_009  Brown leather belt | accessories | colors: brown
+w_010  Black crossbody bag | accessories | colors: black

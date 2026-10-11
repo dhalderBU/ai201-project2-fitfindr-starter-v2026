@@ -15,6 +15,9 @@ env/
 # Cached model responses
 .cache/
 
+# The user's editable wardrobe (initialized from the bundled example)
+.fitfindr/
+
 # OS noise
 .DS_Store
 Thumbs.db
