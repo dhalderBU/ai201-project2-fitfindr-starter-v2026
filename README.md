@@ -44,6 +44,37 @@
 
 <!-- ═══════════════════════ UNIT 3 — THE BUILD ═══════════════════════ -->
 
+## Planned Stretch Features — Category-Average Comparison
+
+This declaration is being committed before the following features are built.
+
+1. **Fourth tool: `compare_price(new_item: dict) -> dict`.** Use the existing
+   `load_listings()` loader to compare the selected listing's price with the
+   arithmetic average of all other listings in the same category, excluding
+   its own listing ID. Calculate the average with `sum(prices) / len(prices)`
+   and round it to two decimal places. No additional packages are needed.
+   Return `listing_id` (str), `category` (str), `item_price` (float),
+   `comparison_count` (int), `average_price` (float or None), `difference`
+   (float or None, item price minus average), and `status` (str: `above_average`,
+   `below_average`, `at_average`, or `insufficient_data`). With no other
+   category listings, return a zero count, null average and difference, and
+   `insufficient_data`.
+2. **Additional branch: above-average price warning.** In
+   `agent.py::run_agent`, after choosing an unowned item, call `compare_price`
+   and store its result in `session["price_comparison"]`. If its status is
+   `above_average`, store a warning in `session["price_warning"]`, trace that
+   branch, and display the warning with the recommendation. Otherwise leave
+   the warning unset. Both paths continue to the outfit and fit-card tools.
+   Empty searches and all-owned results still stop before price comparison.
+
+The comparison covers the supplied dataset, not current market prices. It
+uses every other listing in the category, irrespective of the search budget,
+size, brand, or condition; it is a broad reference rather than a valuation.
+After implementation, the Tool Inventory, Planning Loop, and Sample Run
+sections will explain the changes and include actual terminal evidence of
+the fourth-tool call and the above-average branch. Style memory is not part
+of this declaration.
+
 ## What This Does
 
 <!-- Three or four sentences: what a user asks for, and what they get back. -->
