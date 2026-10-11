@@ -13,6 +13,8 @@ Build and test your three tools in `tools.py` first. Then come here.
     python agent.py          runs both example paths below
 """
 import re
+from copy import deepcopy
+
 import config
 import trace
 from tools import search_listings, suggest_outfit, create_fit_card
@@ -43,6 +45,11 @@ def new_session(query: str, wardrobe: dict) -> dict:
         "wardrobe": wardrobe,        # the user's wardrobe
         "outfit_suggestion": None,   # what suggest_outfit returned
         "fit_card": None,            # what create_fit_card returned
+        "fit_card_inputs": {
+            "outfit": None,
+            "new_item": None,
+        },                            # fixed inputs used for fit-card scoring
+        "fit_card_outputs": [],       # outputs produced from those inputs
         "error": None,               # set when the run ended early
     }
 
@@ -78,6 +85,81 @@ def _parse_query(query: str) -> dict:
         "size": size_match.group(1).strip() if size_match else None,
         "max_price": float(price_match.group(1)) if price_match else None,
     }
+
+
+def _normalize_text(value: str) -> str:
+    """Collapse text so similar titles and wardrobe names compare reliably."""
+    return re.sub(r"[^a-z0-9]+", " ", str(value).lower()).strip()
+
+
+_GENERIC_MATCH_WORDS = {
+    "classic",
+    "everyday",
+    "faded",
+    "fit",
+    "great",
+    "look",
+    "oversized",
+    "style",
+    "stylish",
+    "streetwear",
+    "vintage",
+}
+
+
+def _identity_tokens(value: str) -> set[str]:
+    """Return name tokens useful for identifying a particular garment."""
+    return {
+        token
+        for token in _normalize_text(value).split()
+        if token not in _GENERIC_MATCH_WORDS
+    }
+
+
+def _listing_in_wardrobe(listing: dict, wardrobe: dict) -> bool:
+    """Return True when a search result appears to already be in the wardrobe.
+
+    A duplicate must have the same category, a shared color, and a meaningful
+    name match. Size and price are intentionally ignored.
+    """
+    wardrobe_items = wardrobe.get("items", []) if isinstance(wardrobe, dict) else []
+    if not isinstance(listing, dict):
+        return False
+
+    listing_title = str(listing.get("title", "")).strip()
+    listing_category = _normalize_text(listing.get("category", ""))
+    listing_colors = " ".join(listing.get("colors", []))
+    listing_color_tokens = set(_normalize_text(listing_colors).split())
+    listing_name_tokens = _identity_tokens(listing_title)
+
+    for item in wardrobe_items:
+        if not isinstance(item, dict):
+            continue
+
+        item_name = str(item.get("name", "")).strip()
+        item_category = _normalize_text(item.get("category", ""))
+        item_colors = " ".join(item.get("colors", []))
+        item_color_tokens = set(_normalize_text(item_colors).split())
+
+        if not listing_name_tokens or not item_name or listing_category != item_category:
+            continue
+
+        color_match = bool(listing_color_tokens & item_color_tokens)
+        if not color_match:
+            continue
+
+        item_name_normalized = _normalize_text(item_name)
+        listing_name_normalized = _normalize_text(listing_title)
+        same_name = (
+            listing_name_normalized == item_name_normalized
+            or item_name_normalized in listing_name_normalized
+            or listing_name_normalized in item_name_normalized
+        )
+        name_overlap = len(listing_name_tokens & _identity_tokens(item_name)) >= 2
+        if same_name or name_overlap:
+            return True
+
+    return False
 
 
 def run_agent(query: str, wardrobe: dict) -> dict:
@@ -170,7 +252,39 @@ def run_agent(query: str, wardrobe: dict) -> dict:
             )
             return session
 
-        session["selected_item"] = results[0]
+# Skip a result only when category, a meaningful name match, and a shared
+# color indicate that it is already represented in the wardrobe. Size and
+# price are not part of this check.
+
+        selected = None
+        for candidate in results:
+            if _listing_in_wardrobe(candidate, session["wardrobe"]):
+                trace.step(
+                    "skip wardrobe duplicate",
+                    inputs=candidate,
+                    returned="skipped",
+                    note=(
+                        "category, meaningful name, and color match the "
+                        "wardrobe; size and price ignored"
+                    ),
+                )
+                continue
+            selected = candidate
+            break
+
+        if selected is None:
+            session["error"] = (
+                "All matching listings already appear in the user's wardrobe. "
+                "Try a different description, size, or price limit."
+            )
+            trace.step(
+                "wardrobe-owned branch",
+                returned=session["error"],
+                note="skipping owned results and stopping",
+            )
+            return session
+
+        session["selected_item"] = selected
         trace.step("select_item", returned=session["selected_item"])
 
         try:
@@ -184,18 +298,30 @@ def run_agent(query: str, wardrobe: dict) -> dict:
                 returned=session["outfit_suggestion"],
             )
 
+# the original code was copying reference to the selected item into the fit card inputs, which could lead to unexpected mutations. Using deepcopy ensures that the fit card inputs are independent of the selected item.
+
+            session["fit_card_inputs"] = {
+                "outfit": session["outfit_suggestion"],
+                "new_item": deepcopy(session["selected_item"]),
+            }
             session["fit_card"] = create_fit_card(
-                session["outfit_suggestion"],
-                session["selected_item"],
+                session["fit_card_inputs"]["outfit"],
+                session["fit_card_inputs"]["new_item"],
             )
+            
+            #This line saves the generated fit card into the session’s output history:
+            session["fit_card_outputs"].append(session["fit_card"])
             trace.step(
                 "create_fit_card",
-                inputs=session["outfit_suggestion"],
+                inputs=session["fit_card_inputs"],
                 returned=session["fit_card"],
             )
         except ModelUnavailable as exc:
             session["error"] = f"Unable to complete the styling request: {exc}"
             trace.step("model error", returned=session["error"])
+        except ValueError as exc:
+            session["error"] = f"Unable to create a fit card: {exc}"
+            trace.step("fit-card validation error", returned=session["error"])
         return session
 
 

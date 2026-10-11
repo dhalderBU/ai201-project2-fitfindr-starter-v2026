@@ -366,15 +366,236 @@ Score! These Vintage Levi's 501 Jeans — Medium Wash bring that effortless, liv
 
 **Moment 1**
 
-- *What I asked for:*
+- *What I asked for:* these are two sample criteria exlain how to write each section of critteria and why should critera be written like this:## 1. A matching query completes all three tools
+
+**Source: Provided by CodePath; original criterion retained below.**
+
+Given a query that matches at least one listing, the agent completes all three
+tool calls and returns a fit card — in at least 4 of 5 tries.
+
+**Pass for one try:** The call log shows search_listings, suggest_outfit,
+and create_fit_card completing in that order. The returned session has a
+nonempty search_results list, a selected_item from that list, a nonempty
+outfit_suggestion, a nonblank string in fit_card, and error equal to
+None. The user receives the card without re-entering the selected item.
+Card quality is evaluated separately under criterion 4.
+
+**How to test:** Choose and record one query whose description, size (if
+specified), and budget match a record in data/listings.json. Use the example
+wardrobe and repeat that same query five times in fresh sessions. Save each
+call log, final session, and displayed response.
+
+**Why this target (proposed):** This path depends on two model calls, so an
+occasional failed generation may prevent completion even when search works.
+Four successes out of five requires repeatable usefulness while allowing one
+failure to investigate; it is a small acceptance sample, not a reliability estimate.
+
+## 2. An impossible query stops before the second tool
+
+**Source: Provided by CodePath; original criterion retained below.**
+
+Given a query that matches no listings, the agent stops before calling
+suggest_outfit and returns a message naming what to change — 5 of 5 tries.
+
+**Pass for one try:** search_listings returns []; neither suggest_outfit
+nor create_fit_card is called. The final session has selected_item,
+outfit_suggestion, and fit_card equal to None. Its error message is
+shown to the user and suggests at least one concrete change: broaden the
+item description, change the requested size, or raise the budget. A message
+that only says “No results” fails.
+
+**How to test:** Confirm against the listings file that the chosen query has
+zero matches, then run it five times in fresh sessions. The starter's
+designer ballgown size XXS under $5 is a candidate; verify it against the
+data before using it. Inspect actual tool calls as well as the final session.
+
+**Why this target (proposed):** Once search returns an empty list, stopping
+is a deterministic branch and needs no model-generated answer. Every run
+should prevent invalid downstream calls and provide a usable next step.
+Five out of five is the strictest target in this sample.
+
 - *What came back:*
-- *What I changed:*
+Both criteria use the same structure, and each section has a different job. Here is how to write each one, using your two samples to show the reasoning.
+
+1. Title
+
+What to write: One plain sentence naming the behavior, not the implementation.
+
+Your examples: “A matching query completes all three tools” and “An impossible query stops before the second tool.” Each names a situation (matching vs. impossible query) and an observable outcome (completes all three vs. stops early).
+
+Why: A reader should know what is being tested before reading any details. Putting the input type in the title also makes it obvious that your criteria cover different situations and aren’t repeats.
+
+2. Source line
+
+What to write: Say whether the criterion came from the assignment or from you (or an AI draft).
+
+Your examples: “Provided by CodePath; original criterion retained below.”
+
+Why: It keeps authorship honest. Your status note says the AI-drafted material is a proposal for you to review and revise. For criteria 3 to 5, you would label them as your own, so a grader can tell which choices you made and can expect you to explain them.
+
+3. The criterion statement
+
+What to write: One sentence in the form: Given [specific input], the agent [observable behavior], in at least N of M tries.
+
+Your examples:
+
+“Given a query that matches at least one listing, the agent completes all three tool calls and returns a fit card — in at least 4 of 5 tries.”
+“Given a query that matches no listings, the agent stops before calling suggest_outfit and returns a message naming what to change — 5 of 5 tries.”
+
+Why each part is there:
+
+“Given [input]” fixes the condition. Without it, “the agent works” could mean anything.
+An observable behavior means you can see it in logs or output. “Handles errors well” can’t be seen, but “stops before calling suggest_outfit” can.
+“N of M tries” is there because an agent built on model calls can behave differently on identical input. A single success proves little, so you count successes across repeated runs.
+4. Pass for one try
+
+What to write: A short checklist of yes/no conditions for a single run, each pointing to a place you can look: the call log, the final session, or the displayed response.
+
+Why it’s written this way: Anyone should reach the same pass/fail verdict from your saved evidence without asking you what you meant. That is why there are no words like “good” or “reasonable,” why negative conditions are included, and why subjective ideas get a boundary example.
+
+5. How to test
+
+What to write: The exact procedure: what input, what setup, how many runs, and what evidence to save.
+
+Your examples:
+
+“Choose and record one query... that match[es] a record in data/listings.json.”
+“Use the example wardrobe and repeat that same query five times in fresh sessions.”
+“Save each call log, final session, and displayed response.”
+“Confirm against the listings file that the chosen query has zero matches... verify it against the data before using it.”
+
+Why each piece matters:
+
+A fixed, recorded query means the five runs are comparable, and anyone can repeat your test.
+Fresh sessions prevent leftover state from one run affecting the next.
+Verifying against the data first matters most. In criterion 2, a query you assume has no matches might actually match something, which would invalidate the whole test.
+Saved evidence lets you show the result later instead of just claiming it. This is also why “inspect actual tool calls as well as the final session” appears: a final session can look correct even if the agent took a wrong path to get there.
+6. Why this target
+
+What to write: Your reasoning for the threshold, naming whether the behavior depends on model calls or plain code, and what a failure would mean.
+
+Your examples:
+
+Criterion 1 gets 4 of 5 because “this path depends on two model calls, so an occasional failed generation may prevent completion even when search works.” It also admits the limit: “a small acceptance sample, not a reliability estimate.”
+Criterion 2 gets 5 of 5 because an empty search result leads to “a deterministic branch” that needs no model-generated answer, so any failure is a real bug.
+
+Why: The threshold is a decision, and a decision should have a reason. The explanation also tells you what to do on a failure: with a deterministic branch, any miss means a bug to fix, while with a model-dependent path, one miss is something to investigate. The honest caveat about sample size keeps you from overclaiming what five runs prove.
+
+Why criteria are written this way overall
+Testable by someone else. Every statement can be checked from saved evidence, so the criterion works as a contract.
+One behavior per criterion. Splitting concerns (like sending card quality to criterion 4) means that when something fails, you know which part broke.
+Honest about uncertainty. Using N of M instead of “always works” admits that model behavior varies, and the “why” explains how much variance you are tolerating and why.
+Defensible. You can explain every number and wording choice, which is what the assignment asks of you before submission.
+Applying it to your own criteria
+
+For each one you write, ask in order: what situation is it (title and input)? What will I see if it works (pass conditions, tied to log, session, or response)? How will someone repeat the test (setup and evidence)? And is the behavior plain code or a model call (threshold and reason)?
+
+If you tell me which behaviors you want to cover in criteria 3 to 5, I can help you draft the sections for each.
+- *What I changed:* 
+
+I rewrote the criteria 4 and 5 based on these understanding
 
 **Moment 2**
 
-- *What I asked for:*
+- *What I asked for:* review this and tell me whaaat problems are thre in this criteria:
+**Source: Proposed additional criterion for student review.**
+
+Given a verified matching query and wardrobe={"items": []}, the agent
+returns general styling advice and a nonblank fit card, without asking for
+wardrobe entries or claiming the user owns unprovided pieces — at least
+4 of 5 tries.
+
+**Pass for one try:** All three tools complete, session["error"] is None,
+and the outfit suggestion names at least one complementary clothing type
+plus a color or fit recommendation. It presents those pieces as suggestions
+(for example, “try pairing it with”), not as known wardrobe contents. The
+fit card is nonblank and makes no claim of ownership for unprovided pieces.
+No crash or request to fill the wardrobe occurs.
+
+**How to test:** Record a query that matches the listings, then run it five
+times in fresh sessions using the exact empty wardrobe above. Save the
+session, tool arguments, and displayed output for each try.
+
+**Why this target (proposed):** A new user may have no saved wardrobe, so
+this required fallback must still be useful. Its advice and caption rely on
+model calls; four successes out of five permits one generation failure while
+requiring the fallback to work repeatedly.
+
+
 - *What came back:*
+The idea is good: an empty wardrobe is a real edge case that touches the model-dependent steps. The wording has several problems, though, and a few of them would let two reviewers score the same run differently.
+
+Problems
+
+1. There is no title.
+The other criteria start with a ## N. Title line. This one begins at the source line. Add something like “## 5. An empty wardrobe still produces useful advice.”
+
+2. “General styling advice” is vague in the statement.
+The statement says “general styling advice,” but the pass conditions define it as “at least one complementary clothing type plus a color or fit recommendation.” Use the same wording in both places, or the statement promises something the checklist doesn’t test.
+
+3. “A color or fit recommendation” is loose.
+“Fit” could mean the cut (“oversized”), the sizing, or how the item hangs. Two reviewers could disagree. Define it with examples, such as “a named color (e.g., ‘black jeans’) or a fit word (e.g., ‘relaxed’, ‘cropped’, ‘high-waisted’).”
+
+4. The ownership check is split and partly unclear.
+The statement and the checklist both mention ownership, but they say different things. The statement forbids “claiming the user owns unprovided pieces.” The checklist has one rule about how the outfit “presents” pieces (“try pairing it with”) and another about the card making “no claim of ownership.” The “for example” phrase is a hint, not a rule. Write one concrete test applied to both the outfit suggestion and the card: “Neither describes any piece as already owned or in the user’s closet (e.g., ‘your black jeans’, ‘from your wardrobe’, ‘you already have’).” Note that “your” alone shouldn’t fail, since “your new tee” is fine.
+
+5. Several conditions are bundled into one bullet or sentence.
+“All three tools complete, error is None, and the outfit names...” mixes call-log, session, and content checks. Your other criteria use bullets, each pointing to one place to look (call log, session, response). A bullet list makes each condition separately scorable.
+
+6. “No crash or request to fill the wardrobe occurs” is only partly checkable.
+“Crash” is covered by error equal to None, so this is a repeat. “Request to fill the wardrobe” needs a place to look: “The displayed response contains no question or prompt asking the user to add, enter, or describe wardrobe items, and no second user input is consumed.”
+
+7. The statement says “returns general styling advice,” but nothing checks that the advice stays general.
+If the model invents specific items (“your white sneakers”), that is covered by the ownership check, but say so in one place so it’s clear that this is how “general” is defined.
+
+8. The call order isn’t checked.
+Your criterion 1 and 3 check the order search_listings, suggest_outfit, create_fit_card. Here you say “all three tools complete” with no order. Add it, or explain why it doesn’t matter.
+
+9. “How to test” is missing pieces.
+
+It doesn’t say to confirm the query matches a record in data/listings.json before running (it says “record a query that matches,” which is close, but verify it).
+It doesn’t say to compare the outfit and card against the saved listing and the empty wardrobe.
+Say you score the checks by hand against the saved evidence.
+Say how you handle a try with an exception (it fails).
+
+10. “Why this target” lacks the honest caveat.
+Add “this is a small acceptance sample, not a reliability estimate,” like the CodePath samples. Also, “a new user may have no saved wardrobe” is a reason for the criterion, not for 4 of 5. The target reasoning is in your last clause, so keep that and move the first sentence to a short motivation line or the opening.
+
+11. The empty wardrobe format needs verification.
+wardrobe={"items": []} is a specific shape. Confirm it matches your real wardrobe structure and how the tool receives it. If the real format differs, the test won’t reflect what the agent actually gets.
+
+12. Overlap with criterion 1.
+Criterion 1 covers completion on a normal wardrobe, and this one covers the empty case. That’s fine, but say so, or a reviewer may ask why you repeat “all three tools complete.” Keep the focus on the empty-wardrobe behavior.
+
+Revised version
+5. An empty wardrobe still produces usable styling advice
+
+Source: Proposed additional criterion for student review.
+
+Given a verified matching query and wardrobe={"items": []}, the agent completes all three tools and returns an outfit suggestion with at least one complementary clothing type and a color or fit recommendation, plus a nonblank fit card, without asking for wardrobe entries or claiming the user owns any pieces, in at least 4 of 5 tries.
+
+Pass for one try: All of these checks hold:
+
+The call log shows search_listings, suggest_outfit, and create_fit_card completing in that order, and session["error"] is None.
+The outfit suggestion names at least one complementary clothing type and either a named color or a fit word (such as relaxed, cropped, or high-waisted).
+The fit card is a nonblank string.
+Neither the outfit suggestion nor the fit card describes any piece as already owned or in the user’s closet (such as “your black jeans,” “from your wardrobe,” or “you already have”).
+The displayed response contains no request to add, enter, or describe wardrobe items, and no second user input is consumed.
+
+How to test:
+
+Choose one query and confirm it matches a record in data/listings.json before running.
+Run it five times in fresh sessions, passing the exact empty wardrobe your code expects.
+Save the call log, tool arguments, final session, and displayed response for each try.
+Mark each check yes or no by hand against the saved evidence.
+An exception or a skipped tool fails that try.
+
+Why this target (proposed): [Add why the empty-wardrobe case matters, such as new users having no saved wardrobe.] The advice and the caption both come from model calls, so four successes out of five allows one failed generation while still requiring the fallback to work in most attempts. This is a small acceptance sample, not a reliability estimate.
+
+Before submitting, confirm that {"items": []} is your real empty-wardrobe format, and keep the fit and card-quality rules consistent with criterion 4 so the two don’t conflict.
+
 - *What I changed:*
+I took the guidance and I chnged the Criteria accordingly. The idea was mine but I wrote and have something and claude commented on it and i used the changed wording for the criteria
 
 <!-- ═══════════════════════ UNIT 4 — THE TEST ═══════════════════════
 
