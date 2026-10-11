@@ -8,6 +8,9 @@ FitFindr — command line.
     python app.py listings                browse the data  (Milestone 1)
     python app.py fields                  what fields a listing has
     python app.py examples                queries worth trying, including a dud
+    python app.py wardrobe list           view your saved wardrobe
+    python app.py wardrobe add --name 'Black jeans' --category bottoms --colors black
+    python app.py wardrobe remove --id w_011
 
 Add --trace to any `ask` to print the loop step by step.
 
@@ -107,15 +110,35 @@ def cmd_examples(args):
     )
 
 
-def _ask_one(query, wardrobe, use_trace):
+def _ask_one(query, wardrobe, use_trace, wardrobe_source="provided"):
     from agent import run_agent
     import trace as trace_module
 
     trace_module.start_trace(enabled=use_trace)
+    trace_module.step(
+        "wardrobe memory",
+        returned=f"source={wardrobe_source}; items={len(wardrobe['items'])}",
+        note="; ".join(f"{item.get('id', '?')}: {item.get('name', '?')}"
+                       for item in wardrobe["items"]),
+    )
 
     session = run_agent(query, wardrobe)
+    session["wardrobe_source"] = wardrobe_source
 
     print()
+    comparison = session["price_comparison"]
+    if comparison:
+        if comparison["average_price"] is None:
+            print("  Price comparison: no other listings in this category.")
+        else:
+            print(
+                f"  Category average: ${comparison['average_price']:.2f} "
+                f"across {comparison['comparison_count']} other "
+                f"{comparison['category']} listings in this dataset."
+            )
+        if session["price_warning"]:
+            print(f"  Price warning: {session['price_warning']}")
+        print()
     if session["error"]:
         print(f"  {session['error']}")
     else:
@@ -138,16 +161,20 @@ def _ask_one(query, wardrobe, use_trace):
 
 
 def cmd_ask(args):
-    from utils.data_loader import get_example_wardrobe, get_empty_wardrobe
+    from utils.data_loader import get_empty_wardrobe, load_wardrobe
     import generate
 
-    wardrobe = get_empty_wardrobe() if args.empty_wardrobe else get_example_wardrobe()
     if args.empty_wardrobe:
-        print("(running with an empty wardrobe)")
+        wardrobe, source = get_empty_wardrobe(), "empty override"
+        print("(running with an empty wardrobe; saved wardrobe unchanged)")
+    else:
+        wardrobe, source = load_wardrobe()
+        action = "Initialized and saved" if source == "initialized" else "Loaded saved"
+        print(f"({action} wardrobe: {len(wardrobe['items'])} items)")
 
     try:
         if args.query:
-            _ask_one(args.query, wardrobe, args.trace)
+            _ask_one(args.query, wardrobe, args.trace, source)
         else:
             print("Ask for something, or press Enter on an empty line to quit.\n")
             while True:
@@ -158,12 +185,53 @@ def cmd_ask(args):
                     break
                 if not query:
                     break
-                _ask_one(query, wardrobe, args.trace)
+                # Pick up edits made by a separate wardrobe command between queries.
+                if not args.empty_wardrobe:
+                    wardrobe, source = load_wardrobe()
+                _ask_one(query, wardrobe, args.trace, source)
     finally:
         print(generate.usage())
 
 
+def cmd_wardrobe(args):
+    # argparse stores the chosen subcommand (add, remove, or list) in
+    # args.wardrobe_action. The helpers below manage the same saved wardrobe.
+    from utils.data_loader import (
+        add_wardrobe_item, load_wardrobe, remove_wardrobe_item,
+    )
+
+    if args.wardrobe_action == "add":
+        # Pass the CLI values to the helper, which validates the item, assigns
+        # an ID, and saves it. It returns the new item and updated item count.
+        item, count = add_wardrobe_item(
+            args.name, args.category, args.colors, args.style_tags, args.notes,
+        )
+        print(f"Added {item['id']}: {item['name']}")
+        print(f"Saved wardrobe: {count} items. Future searches will use this wardrobe.")
+    elif args.wardrobe_action == "remove":
+        # Remove by the ID shown by add/list. The helper saves the change and
+        # raises an error if that ID does not exist.
+        item, count = remove_wardrobe_item(args.id)
+        print(f"Removed {item['id']}: {item['name']}")
+        print(f"Saved wardrobe: {count} items. Future searches will use this wardrobe.")
+    else:
+        # The parser permits only three actions, so this path handles "list".
+        # On first use, load_wardrobe initializes and saves the existing example;
+        # on later runs, it loads the user's saved additions and removals.
+        wardrobe, source = load_wardrobe()
+        action = "Initialized and saved" if source == "initialized" else "Loaded saved"
+        print(f"{action} wardrobe: {len(wardrobe['items'])} items\n")
+        # Display each item's ID so the user can select it for removal.
+        for item in wardrobe["items"]:
+            print(f"{item['id']}  {item['name']} | {item['category']} | "
+                  f"colors: {', '.join(item['colors']) or 'unspecified'}")
+        if not wardrobe["items"]:
+            print("Your wardrobe is empty. Add a piece with 'python app.py wardrobe add --help'.")
+
+
 def build_parser():
+    from utils.data_loader import WARDROBE_CATEGORIES
+
     parser = argparse.ArgumentParser(
         prog="app.py",
         description="FitFindr",
@@ -182,6 +250,35 @@ def build_parser():
 
     p_ex = sub.add_parser("examples", help="queries worth trying")
     p_ex.set_defaults(func=cmd_examples)
+
+    # Add the top-level "wardrobe" command, then require an action after it:
+    # for example, "python app.py wardrobe add". Store that action in
+    # args.wardrobe_action so cmd_wardrobe can choose the correct helper.
+    p_wardrobe = sub.add_parser("wardrobe", help="list, add, or remove owned clothing")
+    wardrobe_sub = p_wardrobe.add_subparsers(dest="wardrobe_action", required=True)
+
+    # "wardrobe list" needs no additional arguments.
+    wardrobe_sub.add_parser("list", help="show your saved wardrobe")
+
+    # "wardrobe add" requires a name, a supported category, and at least one color.
+    p_add = wardrobe_sub.add_parser("add", help="add an owned item and save it")
+    p_add.add_argument("--name", required=True)
+    # choices rejects category values outside the wardrobe schema's categories.
+    p_add.add_argument("--category", choices=WARDROBE_CATEGORIES, required=True)
+    # nargs="+" collects one or more values into a list, e.g. --colors black white.
+    # Quote multiword values such as "dark blue" to keep them as one list entry.
+    p_add.add_argument("--colors", nargs="+", required=True)
+    # --style-tags becomes args.style_tags; omitting it produces an empty list.
+    # If the option is supplied, nargs="+" requires at least one tag.
+    p_add.add_argument("--style-tags", nargs="+", default=[])
+    # Notes are optional text; argparse supplies None when they are omitted.
+    p_add.add_argument("--notes")
+
+    # "wardrobe remove" identifies an existing item using its saved ID.
+    p_remove = wardrobe_sub.add_parser("remove", help="remove an owned item and save")
+    p_remove.add_argument("--id", required=True, help="item ID from wardrobe list")
+    # All wardrobe actions share this handler. main() invokes it with args.func(args).
+    p_wardrobe.set_defaults(func=cmd_wardrobe)
 
     p_ask = sub.add_parser("ask", help="run the agent")
     p_ask.add_argument("query", nargs="?")
