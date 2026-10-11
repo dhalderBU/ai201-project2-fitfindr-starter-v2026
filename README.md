@@ -126,7 +126,27 @@ The system generates search results from listing (if available) and then generat
 
 ```
 $ python app.py ask '...'
+% python app.py ask 'vintage graphic tee under $30'
 
+  Found:    Oversized Crewneck Sweatshirt — Vintage Navy — $20.0 on thredUp
+
+  Outfit:   Here are two practical outfit suggestions incorporating the new vintage navy oversized crewneck sweatshirt using only your existing wardrobe:
+
+**Outfit 1: Casual Streetwear**
+*   **Bottoms:** Baggy straight-leg jeans, dark wash
+*   **Shoes:** Chunky white sneakers
+*   **Accessories:** Black crossbody bag
+*   **Styling:** Pair the oversized navy crewneck with your dark wash baggy jeans for a relaxed, tonal blue look. Finish with chunky white sneakers and the black crossbody bag for an effortless, everyday streetwear vibe.
+
+**Outfit 2: High-Contrast Minimal**
+*   **Bottoms:** Wide-leg khaki trousers
+*   **Accessories:** Brown leather belt, Black crossbody bag
+*   **Shoes:** Chunky white sneakers
+*   **Styling:** Tuck the front hem of the navy crewneck into your wide-leg khaki trousers, defined with the brown leather belt to accent the earth tones. Complete the look with chunky white sneakers and your black crossbody bag for a balanced, smart-casual mix.
+
+  Fit card: Score! I just found this dreamy Oversized Crewneck Sweatshirt — Vintage Navy on thredUp for only $20.0. I love its genuine faded wash and clean, classic vibe. Paired with wide-leg khakis and chunky sneakers, it creates the ultimate effortless streetwear look. #ThriftFinds #VintageStyle
+
+2 model calls this session, 932 prompt + 282 output tokens
 ```
 
 **The three tools, tested one at a time**
@@ -135,17 +155,204 @@ $ python app.py ask '...'
 $ python -c "from tools import search_listings; print(search_listings('graphic tee', max_price=30))"
 
 ```
+% python app.py ask --trace 'vintage graphic tee under $30'
+Trace generated at: 2026-10-10T22:09:36-07:00
+[1] 2026-10-10T22:09:36-07:00 +0.000s (step 0.000s) parse_query
+      in:  vintage graphic tee under $30
+      out: dict with keys: description, size, max_price
+[2] 2026-10-10T22:09:36-07:00 +0.001s (step 0.000s) search_listings
+      in:  dict with keys: description, size, max_price
+      out: 8 items: Graphic Tee — 2003 Tour Bootleg Style, Y2K Baby Tee — Butterfly Print, Vintage Graphic Hoodie — Faded Black … +5 more
+[3] 2026-10-10T22:09:36-07:00 +0.001s (step 0.000s) skip wardrobe duplicate
+      in:  Graphic Tee — 2003 Tour Bootleg Style ($24.0, depop)
+      out: skipped
+      →    listing description/name and color match the wardrobe; size and price ignored
+[4] 2026-10-10T22:09:36-07:00 +0.001s (step 0.000s) skip wardrobe duplicate
+      in:  Y2K Baby Tee — Butterfly Print ($18.0, depop)
+      out: skipped
+      →    listing description/name and color match the wardrobe; size and price ignored
+[5] 2026-10-10T22:09:36-07:00 +0.001s (step 0.000s) skip wardrobe duplicate
+      in:  Vintage Graphic Hoodie — Faded Black ($26.0, depop)
+      out: skipped
+      →    listing description/name and color match the wardrobe; size and price ignored
+[6] 2026-10-10T22:09:36-07:00 +0.001s (step 0.000s) skip wardrobe duplicate
+      in:  Mesh Long-Sleeve Top — Black ($15.0, depop)
+      out: skipped
+      →    listing description/name and color match the wardrobe; size and price ignored
+[7] 2026-10-10T22:09:36-07:00 +0.001s (step 0.000s) skip wardrobe duplicate
+      in:  Vintage Band Tee — Faded Grey ($19.0, depop)
+      out: skipped
+      →    listing description/name and color match the wardrobe; size and price ignored
+[8] 2026-10-10T22:09:36-07:00 +0.001s (step 0.000s) skip wardrobe duplicate
+      in:  Low-Rise Cargo Pants — Khaki ($27.0, poshmark)
+      out: skipped
+      →    listing description/name and color match the wardrobe; size and price ignored
+[9] 2026-10-10T22:09:36-07:00 +0.001s (step 0.000s) select_item
+      out: Oversized Crewneck Sweatshirt — Vintage Navy ($20.0, thredUp)
+[10] 2026-10-10T22:09:36-07:00 +0.002s (step 0.000s) suggest_outfit
+      in:  Oversized Crewneck Sweatshirt — Vintage Navy ($20.0, thredUp)
+      out: Here are two practical outfit suggestions incorporating the new vintage navy oversized crewneck sweatshirt usi…
+[11] 2026-10-10T22:09:38-07:00 +1.714s (step 1.712s) create_fit_card
+      in:  dict with keys: outfit, new_item
+      out: Scored this perfectly faded Oversized Crewneck Sweatshirt — Vintage Navy on thredUp for just $20.0! I love the…
+
+  Found:    Oversized Crewneck Sweatshirt — Vintage Navy — $20.0 on thredUp
+
+  Outfit:   Here are two practical outfit suggestions incorporating the new vintage navy oversized crewneck sweatshirt using only your existing wardrobe:
+
+**Outfit 1: Casual Streetwear**
+*   **Bottoms:** Baggy straight-leg jeans, dark wash
+*   **Shoes:** Chunky white sneakers
+*   **Accessories:** Black crossbody bag
+*   **Styling:** Pair the oversized navy crewneck with your dark wash baggy jeans for a relaxed, tonal blue look. Finish with chunky white sneakers and the black crossbody bag for an effortless, everyday streetwear vibe.
+
+**Outfit 2: High-Contrast Minimal**
+*   **Bottoms:** Wide-leg khaki trousers
+*   **Accessories:** Brown leather belt, Black crossbody bag
+*   **Shoes:** Chunky white sneakers
+*   **Styling:** Tuck the front hem of the navy crewneck into your wide-leg khaki trousers, defined with the brown leather belt to accent the earth tones. Complete the look with chunky white sneakers and your black crossbody bag for a balanced, smart-casual mix.
+
+  Fit card: Scored this perfectly faded Oversized Crewneck Sweatshirt — Vintage Navy on thredUp for just $20.0! I love the classic, effortless streetwear vibe when it's paired with baggy dark-wash jeans and chunky white sneakers. Such a timeless basic find! #thriftfinds #streetwear
+
+1 model calls this session, 1 served from cache, 455 prompt + 63 output tokens
 
 ```
 $ python -c "from tools import suggest_outfit; ..."
 
 ```
+% python -c "from tools import suggest_outfit; from utils.data_loader import get_example_wardrobe, load_listings; print(suggest_outfit(load_listings()[0], get_example_wardrobe()))"
+Here are two outfit ideas incorporating the vintage Levi's 501 jeans and your existing wardrobe pieces:
 
+### Outfit 1: Casual Streetwear
+* **Top:** White ribbed tank top
+* **Outerwear:** Vintage black denim jacket
+* **Bottoms:** Vintage Levi's 501 Jeans — Medium Wash
+* **Shoes:** Chunky white sneakers
+* **Accessories:** Black crossbody bag
+
+**Styling:** Tuck the white ribbed tank top into the 501s to highlight the high-waisted fit, layer the slightly cropped vintage black denim jacket on top, and finish with chunky white sneakers and the black crossbody bag for an effortless, casual streetwear look.
+
+---
+
+### Outfit 2: Cozy & Relaxed 
+* **Top:** Oversized grey crewneck sweatshirt
+* **Bottoms:** Vintage Levi's 501 Jeans — Medium Wash
+* **Shoes:** Black combat boots
+* **Accessories:** Brown leather belt, Black crossbody bag
+
+**Styling:** Wear the brown leather belt with the 501s and do a simple front-tuck with the oversized grey crewneck sweatshirt. Pair with the lace-up black combat boots and the black crossbody bag to balance the cozy top with structured vintage denim and grunge footwear.
+(venv-codepath) debasishhalder@Debasishs-Mac-mini CodePathweek3 % 
+
+**Test with the example wardrobe**
+
+ % python -c "from tools import suggest_outfit; from utils.data_loader import get_example_wardrobe, load_listings; item = load_listings()[0]; result = suggest_outfit(item, get_example_wardrobe()); print(result)"
+Here are two outfit ideas incorporating the vintage Levi's 501 jeans and your existing wardrobe pieces:
+
+### Outfit 1: Casual Streetwear
+* **Top:** White ribbed tank top
+* **Outerwear:** Vintage black denim jacket
+* **Bottoms:** Vintage Levi's 501 Jeans — Medium Wash
+* **Shoes:** Chunky white sneakers
+* **Accessories:** Black crossbody bag
+
+**Styling:** Tuck the white ribbed tank top into the 501s to highlight the high-waisted fit, layer the slightly cropped vintage black denim jacket on top, and finish with chunky white sneakers and the black crossbody bag for an effortless, casual streetwear look.
+
+---
+
+### Outfit 2: Cozy & Relaxed 
+* **Top:** Oversized grey crewneck sweatshirt
+* **Bottoms:** Vintage Levi's 501 Jeans — Medium Wash
+* **Shoes:** Black combat boots
+* **Accessories:** Brown leather belt, Black crossbody bag
+
+**Styling:** Wear the brown leather belt with the 501s and do a simple front-tuck with the oversized grey crewneck sweatshirt. Pair with the lace-up black combat boots and the black crossbody bag to balance the cozy top with structured vintage denim and grunge footwear.
+
+
+**Test with an empty wardrobe**
+
+% python -c "from tools import suggest_outfit; from utils.data_loader import get_empty_wardrobe, load_listings; item = load_listings()[0]; result = suggest_outfit(item, get_empty_wardrobe()); print(result)"
+### Outfit 1: Effortless Casual Streetwear
+* **Top:** A boxy-cut white cotton t-shirt tucked in loosely, layered with an oversized black leather biker jacket. 
+* **Shoes:** Retro low-top sneakers like the Adidas Samba or Nike Killshot.
+* **Accessories:** A minimalist black leather belt with a silver buckle and a canvas crossbody bag.
+* **Why it works:** The crisp white tee and vintage wash denim create an iconic, timeless base. Adding the leather jacket and retro sneakers introduces a cool, effortless edge that matches the streetwear vibe of the 501s, while the structured belt pulls the waistline together.
+
+### Outfit 2: Elevated Smart-Casual
+* **Top:** A relaxed-fit, button-down Oxford shirt in crisp light blue or classic white, worn half-tucked.
+* **Shoes:** Dark brown leather loafers or sleek suede ankle boots.
+* **Accessories:** A tortoiseshell belt, delicate gold hoop earrings, and a structured structured leather tote bag.
+* **Why it works:** Pairing rugged, casual denim with polished pieces like an Oxford shirt and leather shoes creates a high-low contrast that feels chic and intentional. The brown leather accessories add warmth that complements the indigo wash.
+
+**Test that the return value is a string**
+
+% python -c "from tools import suggest_outfit; from utils.data_loader import get_empty_wardrobe, load_listings; result = suggest_outfit(load_listings()[0], get_empty_wardrobe()); print(type(result).__name__); print(bool(result.strip()))"
+str
+True
+
+**Test with a manually created empty wardrobe**
+
+% python -c "from tools import suggest_outfit; from utils.data_loader import load_listings; item = load_listings()[0]; print(suggest_outfit(item, {'items': []}))"
+### Outfit 1: Effortless Casual Streetwear
+* **Top:** A boxy-cut white cotton t-shirt tucked in loosely, layered with an oversized black leather biker jacket. 
+* **Shoes:** Retro low-top sneakers like the Adidas Samba or Nike Killshot.
+* **Accessories:** A minimalist black leather belt with a silver buckle and a canvas crossbody bag.
+* **Why it works:** The crisp white tee and vintage wash denim create an iconic, timeless base. Adding the leather jacket and retro sneakers introduces a cool, effortless edge that matches the streetwear vibe of the 501s, while the structured belt pulls the waistline together.
+
+### Outfit 2: Elevated Smart-Casual
+* **Top:** A relaxed-fit, button-down Oxford shirt in crisp light blue or classic white, worn half-tucked.
+* **Shoes:** Dark brown leather loafers or sleek suede ankle boots.
+* **Accessories:** A tortoiseshell belt, delicate gold hoop earrings, and a structured structured leather tote bag.
+* **Why it works:** Pairing rugged, casual denim with polished pieces like an Oxford shirt and leather shoes creates a high-low contrast that feels chic and intentional. The brown leather accessories add warmth that complements the indigo wash.
+
+**Testing of suggest_outfit multiple times from LLM and it gives different output every time**
+
+(venv-codepath) debasishhalder@Debasishs-Mac-mini CodePathweek3 % AI201_CACHE=0 python -c "from tools import suggest_outfit; from utils.data_loader import load_listings; item = load_listings()[0]; print(suggest_outfit(item, {'items': []}))"
+**Outfit 1: Casual Streetwear**
+*   **Top:** A crisp white, boxy-fit heavyweight cotton t-shirt.
+*   **Outerwear:** An oversized black leather or nylon bomber jacket.
+*   **Shoes:** Retro low-top sneakers like Adidas Samba or Nike Killshot.
+*   **Accessories:** A minimalist silver chain necklace and a black canvas crossbody bag.
+*   **Why it works:** The crisp white tee creates a clean, timeless contrast against the medium wash, while the bomber and sneakers lean into the streetwear vibe. The structured jacket balances the relaxed, straight-leg silhouette of the 501s.
+
+**Outfit 2: Elevated Smart-Casual**
+*   **Top:** A ribbed black cotton baby tee or a tucked-in black silk camisole.
+*   **Outerwear:** An oversized, houndstooth or camel-colored blazer.
+*   **Shoes:** Pointed-toe black leather ankle boots.
+*   **Accessories:** A structured black leather belt with a simple gold buckle and a slouchy leather shoulder bag.
+*   **Why it works:** Pairing vintage denim with tailored pieces like a blazer and boots instantly elevates the jeans for dinner or casual office settings. The structured outerwear contrasts nicely with the relaxed, broken-in feel of the 501s.
+(venv-codepath) debasishhalder@Debasishs-Mac-mini CodePathweek3 % AI201_CACHE=0 python -c "from tools import suggest_outfit; from utils.data_loader import load_listings; item = load_listings()[0]; print(suggest_outfit(item, {'items': []}))"
+**Outfit 1: Casual Streetwear**
+*   **Top:** A crisp white, boxy-cut t-shirt tucked in casually, layered with an oversized black leather biker jacket.
+*   **Shoes:** Retro low-top sneakers like Adidas Sambas or Nike Killshots.
+*   **Accessories:** A minimalist silver chain necklace and a black canvas cross-body bag.
+*   **Why it works:** The structured leather jacket and boxy tee elevate the relaxed, lived-in feel of the medium-wash 501s, creating a balanced, effortless streetwear aesthetic.
+
+**Outfit 2: Elevated Smart-Casual**
+*   **Top:** A relaxed-fit, oatmeal-colored merino wool crewneck sweater worn over a crisp blue-and-white striped button-down (letting the collar and hem peek out).
+*   **Shoes:** Dark brown leather penny loafers worn with ribbed white cotton socks.
+*   **Accessories:** A classic brown leather belt with a simple silver buckle and tortoiseshell sunglasses.
+*   **Why it works:** Pairing rugged vintage denim with refined textures like knitwear and leather loafers creates a polished high-low contrast that feels timeless.
+(venv-codepath) debasishhalder@Debasishs-Mac-mini CodePathweek3 % 
+
+
+**Testing of create_fit_card using same command three time getting different results - temperature setting is 0.9**
 ```
 $ python -c "from tools import create_fit_card; ..."
 
 ```
+% python -c "from tools import create_fit_card; from utils.data_loader import load_listings; print(create_fit_card('jeans and white sneakers', load_listings()[0]))"
+How good are these Vintage Levi's 501 Jeans — Medium Wash? Paired with crisp white sneakers, they give off the ultimate effortless streetwear vibe. Snag this classic pair for just $38.0 over on depop before someone else does! #vintage #denim
 
+% python -c "from tools import create_fit_card; from utils.data_loader import load_listings; print(create_fit_card('jeans and white sneakers', load_listings()[0]))"
+Look at this gorgeous pair of Vintage Levi's 501 Jeans — Medium Wash! Styled effortlessly with crisp white sneakers, they give off the ultimate effortless streetwear vibe. Snag this classic look right now on depop for just $38.0. 
+
+#vintage #classic #denim #streetwear
+% python -c "from tools import create_fit_card; from utils.data_loader import load_listings; print(create_fit_card('jeans and white sneakers', load_listings()[0]))"
+Score! These Vintage Levi's 501 Jeans — Medium Wash bring that effortless, lived-in streetwear vibe. Pair them with fresh white sneakers for an instant classic look. Grab this gem on depop for just $38.0 before someone else does! #vintage #denim
+
+(venv-codepath) debasishhalder@Debasishs-Mac-mini CodePathweek3 % 
+
+```
 ---
 
 ## How I Used AI
