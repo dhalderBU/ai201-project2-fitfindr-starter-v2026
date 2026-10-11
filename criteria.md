@@ -133,16 +133,18 @@ quality checks to hold together in most attempts.
 **Source: Proposed by student.**
 
 Given a query whose first matching listing is already represented in the
-user's wardrobe by a matching name or description and at least one shared
-color, and whose later matching listing is not represented in the wardrobe,
+user's wardrobe by the same category, a meaningful matching name, and at
+least one shared color, and whose later matching listing is not represented
+in the wardrobe,
 the agent records and skips the owned listing and selects the first unowned
 matching listing — 5 of 5 tries.
 
 **Pass for one try:** All of these checks hold:
 
-- The saved wardrobe contains an item whose normalized name or descriptive text matches
- the first search result, and whose normalized colors share at
-  least one color token with that listing.
+- The saved wardrobe contains an item with the same normalized category as
+   the first search result, whose name exactly matches, contains, or shares at
+   least two meaningful normalized name tokens with the listing title, and
+   whose normalized colors share at least one color token with that listing.
 - Size and price are not used in the duplicate comparison.
 - The trace records the owned listing with a `skip wardrobe duplicate` event
   and identifies it as skipped.
@@ -157,7 +159,7 @@ does not match a wardrobe item, identified by listing `id`.
 
 **How to test:** Create and save a fixed query, search-result set, and custom wardrobe 
 where the first search result matches a wardrobe item by normalized
-name or descriptive text and at least one shared color, while a later search result 
+category, meaningful name, and at least one shared color, while a later search result 
 does not. Confirm the expected matches against `data/listings.json` and the wardrobe 
 before running the test.
 
