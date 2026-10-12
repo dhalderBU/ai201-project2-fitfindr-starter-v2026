@@ -311,8 +311,20 @@ def generate(
                 "contents": prompt,
                 "config": call_config,
             }
-
+            # --- Added for LLM_TRACE --- Deb
+            if config.LLM_TRACE:
+                print("\n--- LLM REQUEST ---", file=sys.stderr, flush=True)
+                print(f"System instruction:\n{system}", file=sys.stderr, flush=True)
+                print(f"Prompt:\n{prompt}", file=sys.stderr, flush=True)
+            # --- end trace Deb
             response = client.models.generate_content(**kwargs)
+
+            # --- Added for LLM_TRACE --- Deb
+            if config.LLM_TRACE:
+                print("\n--- LLM RESPONSE ---", file=sys.stderr, flush=True)
+                print(response.text, file=sys.stderr, flush=True)
+            # --- end trace Deb
+            
             _record_tokens(response)
             text = (response.text or "").strip()
 

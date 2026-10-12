@@ -57,8 +57,12 @@ works with a direct call, and **a documented failure earns the point in full.**
 ─────────────────────────────────────────────────────────────────────────────
 """
 
+from contextlib import redirect_stdout
+import sys
+
 from mcp.server.fastmcp import FastMCP
 
+import trace as fitfindr_trace
 from tools import search_listings as _search_listings_impl  # noqa: F401 — you'll use this below
 
 # log_level="WARNING" keeps the server from printing an INFO line for every
@@ -69,20 +73,28 @@ mcp = FastMCP("fitfindr", log_level="WARNING")
 
 # ── TODO: uncomment and fill this in ──────────────────────────────────────────
 #
-# @mcp.tool()
-# def search_listings(
-#     description: str,
-#     size: str | None = None,
-#     max_price: float | None = None,
-# ) -> list[dict]:
-#     """
-#     <-- YOUR DESCRIPTION GOES HERE.
-#
-#         One or two sentences. What does this tool do, what does it need, and
-#         what does it give back when it finds nothing? Written for a reader
-#         who cannot see the code.
-#     """
-#     return _search_listings_impl(description, size, max_price)
+@mcp.tool()
+def search_listings(
+    description: str,
+    size: str | None = None,
+    max_price: float | None = None,
+) -> list[dict]:
+    """
+    Search for listings matching the given criteria based on description, size, and maximum price.
+    """
+    # MCP uses stdout for its protocol messages, so send trace output to stderr.
+    with redirect_stdout(sys.stderr):
+        fitfindr_trace.start_trace()
+        fitfindr_trace.step(
+            "search_listings (MCP server)",
+            inputs={
+                "description": description,
+                "size": size,
+                "max_price": max_price,
+            },
+            note="received request; executing listing search",
+        )
+    return _search_listings_impl(description, size, max_price)
 #
 # ──────────────────────────────────────────────────────────────────────────────
 #

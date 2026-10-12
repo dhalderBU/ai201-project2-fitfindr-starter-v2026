@@ -66,6 +66,10 @@ SEARCH_RESULT_LIMIT = 10
 
 MODEL = os.getenv("AI201_MODEL", "gemini-3.5-flash-lite")
 
+# ─── LLM generate trace activating .. Deb ───────────────────────────────────────────────────────────────────
+
+LLM_TRACE = os.getenv("AI201_LLM_TRACE", "0") == "1"
+
 
 # ─── Rate limiting and quota guards ──────────────────────────────────────────
 # You should not need to touch these.
