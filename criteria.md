@@ -20,16 +20,11 @@ nonempty `search_results` list, a `selected_item` from that list, a nonempty
 `None`. The user receives the card without re-entering the selected item.
 Card quality is evaluated separately under criterion 4.
 
-**How to test:** **How to test:** Choose one verified matching query and one 
-fixed wardrobe. Run the complete agent flow five times in fresh sessions with 
-caching disabled. Save the query, wardrobe, trace, final session, displayed response, 
-and any exception for every try. For each completed session, use that session's
-`fit_card_inputs` as the evidence for scoring its `fit_card`. Count words with
-`len(session["fit_card"].split())` and mark each content check against those
-saved inputs. A blank output, exception, missing fit-card inputs, card over 60
-words, or any failed content check fails that try. Criterion 4 passes only if
-at least 4 of 5 tries pass every check. Different wording is allowed; identical
-wording is not automatically a failure.
+**How to test:** Choose one verified matching query and one fixed wardrobe.
+Run the complete agent flow five times in fresh sessions with caching disabled.
+Save actual tool calls, the final session, displayed response, and any exception.
+Check completion and state using the pass checks above. Evaluate card quality
+separately under criterion 4.
 
 **Why this target (proposed):** This path depends on two model calls, so an
 occasional failed generation may prevent completion even when search works.
@@ -116,12 +111,13 @@ detail, such as color, print, brand, or style.
 - Different wording between tries is allowed; identical wording is not
   automatically a failure.
 
-**How to test:** Save one real listing and one valid outfit suggestion as fixed 
-inputs before scoring. Call the tool five times with caching disabled. Save the 
-inputs and each output, count words with `len(card.split())`, and mark each 
-content check using the saved inputs as evidence. A blank output, exception, 
-or any failed check fails the entire try. Different wording is allowed; identical 
-wording is not automatically a failure.
+**How to test:** Run the same verified matching query and fixed wardrobe through
+the complete agent five times in fresh sessions with caching disabled. Save each
+run's actual tool arguments, final session, and displayed response. Score each
+card against that run's `fit_card_inputs`; the generated outfit may differ
+between runs. Count words with `len(session["fit_card"].split())`. A blank output,
+exception, missing inputs, or any failed content check fails the entire try.
+Identical wording is not automatically a failure.
 
 **Why this target (proposed):** A 60 word limit makes the output a short
 caption, and grounding checks prevent fluent but misleading text from passing.
@@ -195,10 +191,12 @@ multiple colors, and a likely duplicate should be skipped rather than recommende
   the missing evidence.
 - Use actual tool-call evidence for criteria 1–3. A plausible final response
   does not establish correct branching or state transfer.
-- The existing `run_eval.py` disables caching and collects session/trace
-  output, but does not score criteria. `scenarios.py` still needs coverage for
-  criteria 3–5. Criterion 4 requires five direct calls with fixed inputs;
-  repeating the full agent may change the outfit and is not an equivalent test.
+- `run_eval.py` disables caching and collects evidence but leaves scoring to
+  the reviewer. Criterion 4 uses full-agent runs, scored against each run's
+  saved inputs. These are not fixed-input direct-tool experiments.
+- Criterion 5 has two scenarios. For Try N, both the skip-owned scenario and
+  the all-owned scenario must pass to mark its single criterion cell PASS.
+  The empty-wardrobe diagnostic is recorded separately from the five criteria.
 - Mark a criterion MET only when its pass count reaches its target. Keep
   original criteria when recording later revisions; explain a genuine
   measurability correction instead of lowering a target after a miss.
@@ -214,3 +212,13 @@ multiple colors, and a likely duplicate should be skipped rather than recommende
 For each FAIL, save the actual output or trace and name the failed check.
 Record the cause separately once investigated; a failure is evidence, not yet
 a diagnosis.
+
+## Pre-evaluation clarification
+
+Before this Milestone 3 evaluation, the contradictory fixed-input instructions
+for criterion 4 were aligned with its full-agent definition and pass checks.
+The original instructions requested five direct calls with one saved listing
+and outfit; that is a different experiment. No targets or quality checks were
+relaxed. Criterion 1's accidentally copied card-quality testing paragraph was
+replaced with completion checks. These corrections do not claim to predate
+earlier project work or testing.

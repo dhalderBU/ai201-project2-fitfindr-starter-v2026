@@ -32,6 +32,14 @@ import argparse
 import datetime as dt
 import sys
 import traceback
+import json
+import io
+import inspect
+import hashlib
+import subprocess
+from copy import deepcopy
+from contextlib import redirect_stdout
+from unittest.mock import patch
 
 import config
 import scenarios as scenario_module
@@ -39,26 +47,68 @@ import scenarios as scenario_module
 
 def run_once(scenario, use_trace=True):
     """One scenario, one try. Returns everything worth recording."""
-    from agent import run_agent
-    from utils.data_loader import get_example_wardrobe, get_empty_wardrobe
+    import agent
     import trace as trace_module
 
-    wardrobe = (
-        get_empty_wardrobe() if scenario["wardrobe"] == "empty" else get_example_wardrobe()
-    )
+    wardrobe = scenario_module.get_wardrobe(scenario["wardrobe"])
 
-    if use_trace:
-        trace_module.start_trace()
+    record = {"error": None, "session": None, "trace": "", "crashed": None,
+              "wardrobe": deepcopy(wardrobe), "calls": [], "input_requests": []}
+    active_session = None
+    original_session = agent.new_session
 
-    record = {"error": None, "session": None, "trace": "", "crashed": None}
-    try:
-        record["session"] = run_agent(scenario["query"], wardrobe)
-    except Exception as exc:  # noqa: BLE001 — a crash is a result worth logging
-        record["crashed"] = f"{type(exc).__name__}: {exc}"
-        record["traceback"] = traceback.format_exc()
+    def capture_session(*args, **kwargs):
+        nonlocal active_session
+        active_session = original_session(*args, **kwargs)
+        return active_session
 
-    if use_trace:
-        record["trace"] = trace_module.get_trace()
+    def observe(name, function):
+        def wrapped(*args, **kwargs):
+            arguments = inspect.signature(function).bind(*args, **kwargs)
+            arguments.apply_defaults()
+            call = {"tool": name, "arguments": deepcopy(dict(arguments.arguments)),
+                    "session_before": deepcopy(active_session), "completed": False}
+            record["calls"].append(call)
+            try:
+                result = function(*args, **kwargs)
+            except Exception as exc:
+                call["exception"] = f"{type(exc).__name__}: {exc}"
+                raise
+            call.update(returned=deepcopy(result), completed=True)
+            return result
+        return wrapped
+
+    def reject_input(prompt=""):
+        record["input_requests"].append(str(prompt))
+        raise RuntimeError("Evaluation requested an unexpected second user input")
+
+    output = io.StringIO()
+    with (
+        redirect_stdout(output),
+        patch.object(agent, "new_session", capture_session),
+        patch.object(agent, "call_tool", observe("MCP", agent.call_tool)),
+        patch.object(agent, "suggest_outfit", observe("suggest_outfit", agent.suggest_outfit)),
+        patch.object(agent, "create_fit_card", observe("create_fit_card", agent.create_fit_card)),
+        patch("builtins.input", reject_input),
+    ):
+        trace_module.start_trace(enabled=use_trace)
+        try:
+            record["session"] = agent.run_agent(scenario["query"], wardrobe)
+        except Exception as exc:  # A crash is evidence, not a replacement try.
+            record["crashed"] = f"{type(exc).__name__}: {exc}"
+            record["traceback"] = traceback.format_exc()
+            record["session"] = deepcopy(active_session)
+        if use_trace:
+            record["trace"] = trace_module.get_trace()
+
+    record["stdout"] = output.getvalue()
+    session = record["session"] or {}
+    card = session.get("fit_card")
+    record["word_count"] = len(card.split()) if isinstance(card, str) else None
+    # Display the exact returned error or card, without shortening it.
+    record["displayed_response"] = session.get("error") or card or record["crashed"] or ""
+    print(record["stdout"], end="")
+    print(record["displayed_response"])
 
     return record
 
@@ -89,6 +139,20 @@ def main():
     print("Cache is OFF for this run — that's deliberate.\n")
 
     rows = []
+    config.RESULTS_DIR.mkdir(exist_ok=True)
+    stamp = dt.datetime.now().astimezone().strftime("%Y-%m-%d_%H%M%S_%f")
+    args.evidence_path = config.RESULTS_DIR / f"run_{stamp}_evidence.jsonl"
+    sources = ["criteria.md", "scenarios.py", "run_eval.py", "agent.py", "tools.py",
+               "trace.py", "config.py", "generate.py", "mcp_client.py", "mcp_server.py",
+               "utils/data_loader.py", "data/listings.json", "data/wardrobe_schema.json"]
+    metadata = {"kind": "metadata", "model": config.MODEL,
+                "temperature": config.TEMPERATURE, "cache_enabled": config.CACHE_ENABLED,
+                "tries": args.tries, "label": args.label,
+                "commit": subprocess.run(["git", "rev-parse", "HEAD"], capture_output=True,
+                                         text=True).stdout.strip(),
+                "source_sha256": {name: hashlib.sha256((config.ROOT / name).read_bytes()).hexdigest()
+                                  for name in sources}}
+    args.evidence_path.write_text(json.dumps(metadata) + "\n", encoding="utf-8")
     for scenario in scenario_module.SCENARIOS:
         print(f"{scenario['name']}  ({scenario['wardrobe']} wardrobe)")
         print(f"  query: {scenario['query']}")
@@ -97,6 +161,9 @@ def main():
         for attempt in range(1, args.tries + 1):
             record = run_once(scenario)
             tries.append(record)
+            with args.evidence_path.open("a", encoding="utf-8") as evidence:
+                evidence.write(json.dumps({"kind": "attempt", "scenario": scenario,
+                                           "attempt": attempt, "record": record}) + "\n")
 
             if record["crashed"]:
                 print(f"  try {attempt}: CRASHED — {record['crashed']}")
@@ -131,6 +198,7 @@ def write_report(rows, args):
         "- Loop: `agent.py::run_agent` · tools: `tools.py`",
         f"- Tries per scenario: {n}, caching off",
         f"- Temperature: {config.TEMPERATURE}",
+        f"- Full evidence: `{getattr(args, 'evidence_path', 'not recorded')}`",
         f"- When: {dt.datetime.now().strftime('%Y-%m-%d %H:%M')}",
         "",
         "Paste the table below into your README. Fill in the Criterion and",
@@ -141,20 +209,20 @@ def write_report(rows, args):
         f"|---|---|{divider}|---|",
     ]
 
-    for row in rows:
-        scenario = row["scenario"]
-        number = scenario.get("criterion")
-        # A scenario with "criterion": None is a diagnostic run, not one of
-        # your five. It's marked so you don't paste an unnumbered row into a
-        # table the README asks you to number 1-5.
-        label_text = (
-            f"{number}. {scenario['name']}"
-            if number
-            else f"{scenario['name']} _(diagnostic — not one of your five)_"
-        )
-        lines.append(f"| {label_text} |  | {' | '.join([' '] * n)} |  |")
+    criteria = [
+        ("1. Matching query completes", "4 of 5"),
+        ("2. Empty search stops safely", "5 of 5"),
+        ("3. State survives handoffs", "5 of 5"),
+        ("4. Fit-card quality", "4 of 5"),
+        ("5. Owned result advances search", "5 of 5"),
+    ]
+    for name, target in criteria:
+        lines.append(f"| {name} | {target} | {' | '.join([' '] * n)} | Not evaluated |")
 
     lines += [
+        "",
+        "Criterion 5: combine both scenarios for each numbered try; both must pass.",
+        "The empty-wardrobe scenario is a separate diagnostic, not a criterion row.",
         "",
         "> The Try and Verdict columns are blank on purpose. Whether a try",
         "> passed depends on the criterion you wrote, so it's yours to decide.",
@@ -182,7 +250,6 @@ def write_report(rows, args):
 
             if record["crashed"]:
                 lines += ["Crashed:", "", "```", record["crashed"], "```", ""]
-                continue
 
             session = record["session"] or {}
             item = session.get("selected_item") or {}
@@ -191,8 +258,15 @@ def write_report(rows, args):
                 f"- selected_item: {item.get('title', '(none)')}"
                 + (f" (${item.get('price')}, {item.get('platform')})" if item else ""),
                 f"- search_results: {len(session.get('search_results') or [])}",
+                f"- fit-card words: {record.get('word_count')}",
                 "",
             ]
+            lines += ["Displayed response (`run_eval.py::run_once`, returned by `agent.py::run_agent`):",
+                      "", "```", record.get("displayed_response", ""), "```", "",
+                      "Full session and actual tool handoffs:", "", "```json",
+                      json.dumps({"session": session, "calls": record.get("calls", []),
+                                  "input_requests": record.get("input_requests", [])}, indent=2),
+                      "```", ""]
             if session.get("outfit_suggestion"):
                 lines += ["Outfit suggestion:", "", "```",
                           str(session["outfit_suggestion"]), "```", ""]
