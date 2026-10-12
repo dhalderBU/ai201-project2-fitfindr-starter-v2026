@@ -899,6 +899,150 @@ Trace generated at: 2026-10-11T20:16:12-07:00
       →    received request; executing listing search
 [{'id': 'lst_002', 'title': 'Y2K Baby Tee — Butterfly Print', 'description': 'Super cute early 2000s baby tee with butterfly graphic. Fitted crop length. Tag says medium but fits like a small.', 'category': 'tops', 'style_tags': ['y2k', 'vintage', 'graphic tee', 'cottagecore'], 'size': 'S/M', 'condition': 'excellent', 'price': 18.0, 'colors': ['white', 'pink', 'purple'], 'brand': None, 'platform': 'depop'}, {'id': 'lst_006', 'title': 'Graphic Tee — 2003 Tour Bootleg Style', 'description': 'Vintage-style bootleg tee with faded graphic. Slightly boxy fit. 100% cotton, soft and worn-in.', 'category': 'tops', 'style_tags': ['graphic tee', 'vintage', 'grunge', 'streetwear', 'band tee'], 'size': 'L', 'condition': 'good', 'price': 24.0, 'colors': ['black'], 'brand': None, 'platform': 'depop'}, {'id': 'lst_017', 'title': 'Mesh Long-Sleeve Top — Black', 'description': 'Sheer black mesh long-sleeve. Great for layering under a graphic tee or over a bralette. Stretchy material, fits true to size.', 'category': 'tops', 'style_tags': ['y2k', 'grunge', 'goth', 'layering'], 'size': 'S/M', 'condition': 'excellent', 'price': 15.0, 'colors': ['black'], 'brand': None, 'platform': 'depop'}, {'id': 'lst_033', 'title': 'Vintage Band Tee — Faded Grey', 'description': 'Faded grey band-style tee with distressed graphic. Crew neck. Fits boxy. Well-loved but no holes or major damage.', 'category': 'tops', 'style_tags': ['vintage', 'grunge', 'band tee', 'graphic tee', 'streetwear'], 'size': 'L', 'condition': 'fair', 'price': 19.0, 'colors': ['grey', 'charcoal'], 'brand': None, 'platform': 'depop'}, {'id': 'lst_011', 'title': 'Low-Rise Cargo Pants — Khaki', 'description': 'Y2K era low-rise cargo pants. Lots of pockets. Khaki color, slightly distressed at the hems. Great for layering with a long tee.', 'category': 'bottoms', 'style_tags': ['y2k', 'cargo', '2000s', 'streetwear'], 'size': 'W29', 'condition': 'fair', 'price': 27.0, 'colors': ['khaki', 'tan'], 'brand': None, 'platform': 'poshmark'}, {'id': 'lst_015', 'title': 'Vintage Graphic Hoodie — Faded Black', 'description': 'Faded black pullover hoodie with barely-visible vintage graphic on the chest. Cozy interior. Some pilling but adds to the worn-in look.', 'category': 'tops', 'style_tags': ['vintage', 'grunge', 'graphic', 'streetwear'], 'size': 'L', 'condition': 'fair', 'price': 26.0, 'colors': ['black', 'charcoal'], 'brand': None, 'platform': 'depop'}]
 
+<!-- Milestone 2-  execution proof its working Unit 4  --> 
+
+**Doing Empty Search**
+% python app.py ask --trace 'Bullet prrof shirt under $1' 
+(Loaded saved wardrobe: 10 items)
+Trace generated at: 2026-10-11T21:07:28-07:00
+[1] 2026-10-11T21:07:28-07:00 +0.000s (step 0.000s) wardrobe memory
+      out: source=saved; items=10
+      →    w_001: Baggy straight-leg jeans, dark wash; w_002: Wide-leg khaki trousers; w_003: White ribbed tank top; w_004: Oversized grey crewneck sweatshirt; w_005: Black cropped zip hoodie; w_006: Vintage black denim jacket; w_007: Chunky white sneakers; w_008: Black combat boots; w_009: Brown leather belt; w_010: Black crossbody bag
+[2] 2026-10-11T21:07:28-07:00 +0.001s (step 0.001s) parse_query
+      in:  Bullet prrof shirt under $1
+      out: dict with keys: description, size, max_price
+Trace generated at: 2026-10-11T21:07:29-07:00
+[1] 2026-10-11T21:07:29-07:00 +0.000s (step 0.000s) search_listings (MCP server)
+      in:  dict with keys: description, size, max_price
+      →    received request; executing listing search
+[3] 2026-10-11T21:07:29-07:00 +0.754s (step 0.753s) search_listings
+      in:  dict with keys: description, size, max_price
+      out: [] (empty)
+[4] 2026-10-11T21:07:29-07:00 +0.754s (step 0.000s) empty-search branch
+      out: No listings matched. Try broader keywords, a different size, or a higher price limit.
+      →    stopping before suggest_outfit
+
+  No listings matched. Try broader keywords, a different size, or a higher price limit.
+
+0 model calls this session
+
+#### Above we see the agent is stopping and saying what to change 
+
+**Running with empty wardrobe will give us advice only**
+python app.py ask --empty-wardrobe 'vintage graphic tee under $30'
+% python app.py ask --empty-wardrobe 'vintage graphic tee under $30'
+(running with an empty wardrobe; saved wardrobe unchanged)
+Trace generated at: 2026-10-11T21:13:50-07:00
+[1] 2026-10-11T21:13:50-07:00 +0.000s (step 0.000s) search_listings (MCP server)
+      in:  dict with keys: description, size, max_price
+      →    received request; executing listing search
+
+  Category average: $21.57 across 14 other tops listings in this dataset.
+  Price warning: This item is $2.43 above the $21.57 average of 14 other tops listings in this dataset. This is a broad category comparison, not a market valuation.
+
+  Found:    Graphic Tee — 2003 Tour Bootleg Style — $24.0 on depop
+
+  Outfit:   **Outfit 1: Elevated Grunge**
+*   **Bottoms:** Medium-wash or light-wash relaxed fit denim jeans with intentional distressing.
+*   **Shoes:** Black leather chunky combat boots (like Dr. Martens) or distressed retro sneakers (like Adidas Samba).
+*   **Accessories:** A silver ball-chain necklace, a black leather crossbody bag with silver hardware, and a worn-in black beanie.
+*   **Why it works:** The relaxed denim contrasts the dark tee while keeping the casual, effortless grunge aesthetic cohesive. Adding silver hardware bridges the vintage-metal tour aesthetic with modern streetwear.
+
+**Outfit 2: High-Low Streetwear**
+*   **Bottoms:** Pleated wide-leg trousers in charcoal grey or olive green.
+*   **Shoes:** Low-profile skate shoes in a neutral off-white or cream.
+*   **Accessories:** A sleek nylon belt, a minimalist silver cuff bracelet, and wire-rimmed sunglasses.
+*   **Why it works:** Pairing the boxy, casual graphic tee with tailored trousers creates a balanced high-low look. Tucking the tee in slightly defines the waist while keeping the streetwear edge intact.
+
+  Fit card: Score serious streetwear vibes with this Graphic Tee — 2003 Tour Bootleg Style! Styled with relaxed denim or tailored trousers, its soft, worn-in cotton nails effortless grunge. Grab this gem for $24.0 on depop before it’s gone. #StreetwearStyle #ThriftFinds
+
+2 model calls this session, 665 prompt + 310 output tokens
+
+**What did the agent say**
+Agents gave outfit 1  and Outfit 2 along with the fit Card as given above
+
+**Test the model unavailable by changing API key to an invalid key**
+
+% python app.py ask --empty-wardrobe 'vintage graphic tee under $30'
+(running with an empty wardrobe; saved wardrobe unchanged)
+Trace generated at: 2026-10-11T21:29:11-07:00
+[1] 2026-10-11T21:29:11-07:00 +0.000s (step 0.000s) search_listings (MCP server)
+      in:  dict with keys: description, size, max_price
+      →    received request; executing listing search
+
+  Category average: $21.57 across 14 other tops listings in this dataset.
+  Price warning: This item is $2.43 above the $21.57 average of 14 other tops listings in this dataset. This is a broad category comparison, not a market valuation.
+
+  Unable to complete the styling request: The model rejected your API key. Check GEMINI_API_KEY in your .env file, or create a fresh key at aistudio.google.com.
+
+1 model calls this session, 1 served from cache
+
+### **Adding Trace and run full flow:**
+
+ % AI201_CACHE=0 python app.py ask --trace 'vintage graphic tee under $30'
+(Loaded saved wardrobe: 10 items)
+Trace generated at: 2026-10-11T21:51:18-07:00
+[1] 2026-10-11T21:51:18-07:00 +0.000s (step 0.000s) wardrobe memory
+      out: source=saved; items=10
+      →    w_001: Baggy straight-leg jeans, dark wash; w_002: Wide-leg khaki trousers; w_003: White ribbed tank top; w_004: Oversized grey crewneck sweatshirt; w_005: Black cropped zip hoodie; w_006: Vintage black denim jacket; w_007: Chunky white sneakers; w_008: Black combat boots; w_009: Brown leather belt; w_010: Black crossbody bag
+[2] 2026-10-11T21:51:18-07:00 +0.000s (step 0.000s) parse_query
+      in:  vintage graphic tee under $30
+      out: dict with keys: description, size, max_price
+Trace generated at: 2026-10-11T21:51:19-07:00
+[1] 2026-10-11T21:51:19-07:00 +0.000s (step 0.000s) search_listings (MCP server)
+      in:  dict with keys: description, size, max_price
+      →    received request; executing listing search
+[3] 2026-10-11T21:51:19-07:00 +0.730s (step 0.730s) search_listings Using MCP
+      in:  dict with keys: description, size, max_price
+      out: 8 items: Graphic Tee — 2003 Tour Bootleg Style, Y2K Baby Tee — Butterfly Print, Vintage Graphic Hoodie — Faded Black … +5 more
+[4] 2026-10-11T21:51:19-07:00 +0.730s (step 0.000s) select_item
+      out: Graphic Tee — 2003 Tour Bootleg Style ($24.0, depop)
+[5] 2026-10-11T21:51:19-07:00 +0.731s (step 0.000s) compare_price
+      in:  Graphic Tee — 2003 Tour Bootleg Style ($24.0, depop)
+      out: dict with keys: listing_id, category, item_price, comparison_count, average_price, difference
+      →    status=above_average; peers=14; average=21.57; difference=2.43
+[6] 2026-10-11T21:51:19-07:00 +0.731s (step 0.000s) above-average price branch (Second Branch)
+      out: This item is $2.43 above the $21.57 average of 14 other tops listings in this dataset. This is a broad categor…
+      →    show a price warning and continue to suggest_outfit
+[7] 2026-10-11T21:51:21-07:00 +2.441s (step 1.710s) suggest_outfit
+      in:  Graphic Tee — 2003 Tour Bootleg Style ($24.0, depop)
+      out: Here are two outfit suggestions using your new graphic tee and pieces from your wardrobe:  ### Outfit 1: 90s G…
+[8] 2026-10-11T21:51:22-07:00 +3.288s (step 0.847s) create_fit_card
+      in:  dict with keys: outfit, new_item
+      out: Scored this vintage-vibe Graphic Tee — 2003 Tour Bootleg Style on depop for just $24.0! Style it with baggy je…
+
+  Category average: $21.57 across 14 other tops listings in this dataset.
+  Price warning: This item is $2.43 above the $21.57 average of 14 other tops listings in this dataset. This is a broad category comparison, not a market valuation.
+
+  Found:    Graphic Tee — 2003 Tour Bootleg Style — $24.0 on depop
+
+  Outfit:   Here are two outfit suggestions using your new graphic tee and pieces from your wardrobe:
+
+### Outfit 1: 90s Grunge Streetwear
+* **Top:** Graphic Tee — 2003 Tour Bootleg Style
+* **Outerwear:** Vintage black denim jacket
+* **Bottoms:** Baggy straight-leg jeans, dark wash
+* **Shoes:** Black combat boots
+* **Accessories:** Black crossbody bag
+
+**Styling:** Tuck the boxy graphic tee loosely into the high-waisted baggy straight-leg jeans. Layer the slightly cropped vintage black denim jacket on top, and finish with the black combat boots and black crossbody bag for an effortless, grungy streetwear look.
+
+---
+
+### Outfit 2: Contrast Casual
+* **Top:** Graphic Tee — 2003 Tour Bootleg Style
+* **Bottoms:** Wide-leg khaki trousers
+* **Accessories:** Brown leather belt
+* **Shoes:** Chunky white sneakers
+* **Accessories:** Black crossbody bag
+
+**Styling:** Half-tuck the black graphic tee into the wide-leg khaki trousers, secured with the brown leather belt to add definition and contrast against the earth tones. Pair with chunky white sneakers and the black crossbody bag for a balanced, casual streetwear fit.
+
+  Fit card: Scored this vintage-vibe Graphic Tee — 2003 Tour Bootleg Style on depop for just $24.0! Style it with baggy jeans and combat boots for effortless 90s grunge, or dress it down with khaki trousers for a cool contrast. Total streetwear win. 
+
+#depop #streetwear #vintagestyle
+
+2 model calls this session, 995 prompt + 334 output tokens
 
 ## Run Log — Before
 

@@ -247,7 +247,10 @@ def run_agent(query: str, wardrobe: dict) -> dict:
         })
 
         session["search_results"] = results
-        trace.step("search_listings", inputs=parsed, returned=results)
+        trace.step("search_listings Using MCP", 
+                   inputs=parsed, 
+                   returned=results
+                   )        
 
         #_________ Branch rule: if nothing came back, stop and propose change__________________
         #_________ RULE : If search_listings returns an empty list, put a message in the session and stop. Otherwise, take the first result and go to suggest_outfit______
