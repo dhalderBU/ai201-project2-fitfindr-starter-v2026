@@ -41,7 +41,7 @@ if sys.platform == "win32":
 # time; higher gives you more variation. Fit cards want variation — a caption
 # that reads identically for two different items isn't a caption, it's a
 # template.
-TEMPERATURE = 0
+TEMPERATURE = 0.9
 
 # While you're building, identical prompts reuse the answer already received,
 # so re-running the same query twenty times while debugging costs one call.
