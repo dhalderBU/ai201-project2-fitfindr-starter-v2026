@@ -102,28 +102,47 @@ def wardrobe_path() -> str:
 
 def _validate_wardrobe(wardrobe: dict) -> None:
     """Reject malformed memory before passing it to the agent or saving it."""
+    # The outer structure must be a dictionary containing an "items" list.
+    # An empty list is valid: the user may have removed every item.
     if not isinstance(wardrobe, dict) or not isinstance(wardrobe.get("items"), list):
         raise ValueError("Wardrobe must contain an 'items' list.")
+
+    # Track IDs already encountered so each item can be identified uniquely.
     seen_ids = set()
     for item in wardrobe["items"]:
+        # Each list entry must contain named fields, rather than plain text.
         if not isinstance(item, dict):
             raise ValueError("Each wardrobe item must be an object.")
+
+        # Both ID and name must be strings with at least one non-space character.
         for field in ("id", "name"):
             if not isinstance(item.get(field), str) or not item[field].strip():
                 raise ValueError(f"Each wardrobe item needs a nonblank {field}.")
+
+        # A repeated ID would make operations such as removal ambiguous.
         if item["id"] in seen_ids:
             raise ValueError(f"Duplicate wardrobe ID: {item['id']}.")
         seen_ids.add(item["id"])
+
+        # Restrict categories to those understood by the listings and agent.
         if item.get("category") not in WARDROBE_CATEGORIES:
             raise ValueError(f"Category must be one of: {', '.join(WARDROBE_CATEGORIES)}.")
+
+        # Colors and style tags must be lists, even when there is only one value.
+        # Empty lists are allowed, but any supplied entries must be nonblank text.
         for field in ("colors", "style_tags"):
             values = item.get(field)
             if not isinstance(values, list) or any(
                 not isinstance(value, str) or not value.strip() for value in values
             ):
                 raise ValueError(f"Item {field} must be a list of nonblank strings.")
+
+        # Notes are optional: they may be omitted, None (JSON null), or a string.
         if item.get("notes") is not None and not isinstance(item["notes"], str):
             raise ValueError("Item notes must be text or null.")
+
+    # Successful validation returns None. Invalid data raises ValueError above;
+    # this function checks the wardrobe without changing its contents.
 
 
 def save_wardrobe(wardrobe: dict) -> None:
@@ -178,6 +197,8 @@ def add_wardrobe_item(
     notes: Optional[str] = None,
 ) -> tuple[dict, int]:
     """Add an owned piece, save it, and return (new item, total item count)."""
+    # Trim surrounding spaces and build an item in the expected wardrobe format.
+    # "pending" is a temporary ID for validation; the saved ID is assigned below.
     item = {
         "id": "pending",
         "name": name.strip(),
@@ -186,8 +207,12 @@ def add_wardrobe_item(
         "style_tags": [tag.strip() for tag in (style_tags or [])],
         "notes": notes.strip() if notes else None,
     }
+    # Check the input before loading or initializing the saved wardrobe.
     _validate_wardrobe({"items": [item]})
     wardrobe, _ = load_wardrobe()
+
+    # Reject an item with the same name, category, and colors. Ignore differences
+    # in name spacing/capitalization and color capitalization/order.
     for existing in wardrobe["items"]:
         if (
             " ".join(existing["name"].split()).casefold()
@@ -197,14 +222,23 @@ def add_wardrobe_item(
             == {color.casefold() for color in item["colors"]}
         ):
             raise ValueError(f"This item is already saved as {existing['id']}.")
+
+    # Extract the numeric part of IDs such as "w_010" -> 10. Ignore IDs that
+    # do not follow the "w_" plus digits format.
     used_numbers = [
         int(existing["id"][2:])
         for existing in wardrobe["items"]
         if existing["id"].startswith("w_") and existing["id"][2:].isdecimal()
     ]
+    # Add one to the highest existing number; an empty wardrobe starts at 1.
+    # :03d pads to at least three digits, so 11 becomes "w_011".
+    # Because only current IDs are checked, a deleted highest ID may be reused.
     item["id"] = f"w_{max(used_numbers, default=0) + 1:03d}"
+
+    # Append to the same wardrobe and persist the change for future runs.
     wardrobe["items"].append(item)
     save_wardrobe(wardrobe)
+    # Return the assigned item and updated count so the CLI can confirm the save.
     return item, len(wardrobe["items"])
 
 
