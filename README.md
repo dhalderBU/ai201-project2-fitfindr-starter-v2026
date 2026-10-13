@@ -203,7 +203,7 @@ how universal-size items are handled.
 
 
 
-##### Fourth tool and Second Branch — price comparison (Stretch features 1 and 2)
+##### Fourth tool and Second Branch (with price comparison) ...stretch features 1 and 2
 
 This section show the price comparison and branch decisions.
 Original timestamps and step numbers are preserved; complete CLI outputs are
@@ -250,8 +250,8 @@ Trace generated at: 2026-10-11T03:03:04-07:00
   Price warning: This item is $1.14 above the $43.86 average of 7 other outerwear listings in this dataset. This is a broad category comparison, not a market valuation.
 ```
 
-The selected jacket costs $45.00. The seven other outerwear listings total
-$307.00, so their average is $43.86 after rounding. The comparison result is
+The jacket from search listing costs $45.00. The seven other outerwear in the listings total
+$307.00 i.e average is $43.86 after rounding. The comparison result is
 stored in `session["price_comparison"]`. Trace step 5 proves the agent called
 the fourth tool; step 6 explicitly records `above-average price branch (Second Branch)`.
 The condition is `status == "above_average"`: the loop stores the $1.14 warning
@@ -409,9 +409,9 @@ Added w_011: Graphic Tee — 2003 Tour Bootleg Style
 Saved wardrobe: 11 items. Future searches will use this wardrobe.
 ```
 
-**Run 2 — search using the remembered wardrobe (trace excerpt)**
+**Run 2 — search using the remembered wardrobe (trace)**
 
-This excerpt shows the saved wardrobe being loaded, the owned tee being skipped,
+This trace shows the saved wardrobe being loaded, the owned tee being skipped,
 and the resulting selection. Original timestamps and step numbers are retained.
 
 
@@ -448,7 +448,7 @@ second run's selection is shaped by what the first stored, independently of
 variation in model wording. The saved wardrobe also reaches `suggest_outfit`.
 This fresh run completed both model calls with caching disabled.
 
-**Removal persists too**
+**Removal persists**
 
 ```bash
 python app.py wardrobe remove --id w_011
@@ -1044,31 +1044,340 @@ Trace generated at: 2026-10-11T21:51:19-07:00
 
 2 model calls this session, 995 prompt + 334 output tokens
 
+## Stretch Features implemented
+
+**1. A second tool moved onto MCP**
+
+**2. Retry with looser constraints**
+
+**3. A second measured improvement**
+
+Above three details and the trace are added at the end of this READM.md file
+
+
 ## Run Log — Before
 
-<!-- Five criteria, five tries each, in this exact format.
-
-     Five, because your criteria are written out of five. Mark each try PASS
-     or FAIL, count the passes, and read that count against your target — a
-     row targeting 4 of 5 with three PASS cells is MISSED (3/5).
-
-     `python run_eval.py --label before` runs everything and writes the table
-     into results/. Paste it here and fill in the verdicts. -->
+Saved baseline: `run_2026-10-11_2251_before.md`, produced by
+`run_eval.py::main` , before the measured
+improvements. Each scenario ran five times with caching disabled, model
+`gemini-3.5-flash-lite`, and temperature 0.9.
 
 | Criterion | Target | Try 1 | Try 2 | Try 3 | Try 4 | Try 5 | Verdict |
 |---|---|---|---|---|---|---|---|
-| 1.  |  |  |  |  |  |  |  |
-| 2.  |  |  |  |  |  |  |  |
-| 3.  |  |  |  |  |  |  |  |
-| 4.  |  |  |  |  |  |  |  |
-| 5.  |  |  |  |  |  |  |  |
+| 1. Matching query completes | 4 of 5 | PASS | PASS | PASS | PASS | PASS | MET (5/5) |
+| 2. Empty search stops safely | 5 of 5 | PASS | PASS | PASS | PASS | PASS | MET (5/5) |
+| 3. State survives handoffs | 5 of 5 | PASS | PASS | PASS | PASS | PASS | MET (5/5) |
+| 4. Fit-card quality | 4 of 5 | PASS | PASS | PASS | PASS | FAIL | MET (4/5) |
+| 5. Owned result advances search | 5 of 5 | PASS | PASS | PASS | PASS | PASS | MET (5/5) |
 
-**Real output from one try**, pasted as text, naming the file and function
-that produced it:
+Criterion 5 combines the skip-owned and all-owned scenarios for each numbered
+try; both must pass. The empty-wardrobe scenario is a separate diagnostic.
+All five criteria met their targets, although criterion 4 failed on try 5.
+These are the baseline scores used in the diagnoses and improvement comparison
+below; the baseline stops an empty search without the later size-relaxation retry.
 
+**Real output for each criterion:**
+
+The excerpts below come from the saved baseline evidence linked after these
+examples. They are recorded execution output, not new runs. Traces were emitted
+by `agent.py::run_agent` through `trace.py::step`; `run_eval.py::run_once` captured
+the traces, displayed responses, and actual tool arguments.
+
+**Criterion 1 — matching query completes, try 1:**
+
+Query: `vintage graphic tee under $30`; wardrobe: `example`.
+
+Actual trace from `agent.py::run_agent`, formatted by `trace.py::step`:
+
+```text
+Trace generated at: 2026-10-11T22:47:57-07:00
+[1] 2026-10-11T22:47:57-07:00 +0.000s (step 0.000s) parse_query
+      in:  vintage graphic tee under $30
+      out: dict with keys: description, size, max_price
+[2] 2026-10-11T22:47:58-07:00 +0.766s (step 0.765s) search_listings Using MCP
+      in:  dict with keys: description, size, max_price
+      out: 8 items: Graphic Tee — 2003 Tour Bootleg Style, Y2K Baby Tee — Butterfly Print, Vintage Graphic Hoodie — Faded Black … +5 more
+[3] 2026-10-11T22:47:58-07:00 +0.766s (step 0.000s) select_item
+      out: Graphic Tee — 2003 Tour Bootleg Style ($24.0, depop)
+[4] 2026-10-11T22:47:58-07:00 +0.766s (step 0.000s) compare_price
+      in:  Graphic Tee — 2003 Tour Bootleg Style ($24.0, depop)
+      out: dict with keys: listing_id, category, item_price, comparison_count, average_price, difference
+      →    status=above_average; peers=14; average=21.57; difference=2.43
+[5] 2026-10-11T22:47:58-07:00 +0.766s (step 0.000s) above-average price branch (Second Branch)
+      out: This item is $2.43 above the $21.57 average of 14 other tops listings in this dataset. This is a broad categor…
+      →    show a price warning and continue to suggest_outfit
+[6] 2026-10-11T22:47:59-07:00 +2.686s (step 1.920s) suggest_outfit
+      in:  Graphic Tee — 2003 Tour Bootleg Style ($24.0, depop)
+      out: Here are two outfit suggestions incorporating the new graphic tee and pieces from your existing wardrobe:  ###…
+[7] 2026-10-11T22:48:00-07:00 +3.484s (step 0.798s) create_fit_card
+      in:  dict with keys: outfit, new_item
+      out: Scored this vintage-vibed Graphic Tee — 2003 Tour Bootleg Style for just $24.0 on depop! It’s giving effortles…
 ```
 
+Actual displayed response produced by `tools.py::create_fit_card`, returned through `agent.py::run_agent`
+and recorded by `run_eval.py::run_once`:
+
+```text
+Scored this vintage-vibed Graphic Tee — 2003 Tour Bootleg Style for just $24.0 on depop! It’s giving effortless 90s grunge streetwear when paired with baggy denim and combat boots. Such an easy win for your rotation. #depopfinds #vintagestyle
 ```
+
+**Criterion 2 — impossible query stops early, try 1:**
+
+Query: `designer ballgown size XXS under $5`; wardrobe: `example`.
+
+Actual trace from `agent.py::run_agent`, formatted by `trace.py::step`:
+
+```text
+Trace generated at: 2026-10-11T22:48:11-07:00
+[1] 2026-10-11T22:48:11-07:00 +0.000s (step 0.000s) parse_query
+      in:  designer ballgown size XXS under $5
+      out: dict with keys: description, size, max_price
+[2] 2026-10-11T22:48:11-07:00 +0.438s (step 0.438s) search_listings Using MCP
+      in:  dict with keys: description, size, max_price
+      out: [] (empty)
+[3] 2026-10-11T22:48:11-07:00 +0.438s (step 0.000s) empty-search branch
+      out: No listings matched. Try broader keywords, a different size, or a higher price limit.
+      →    stopping before suggest_outfit
+```
+
+Actual displayed response produced by `agent.py::run_agent`
+and recorded by `run_eval.py::run_once`:
+
+```text
+No listings matched. Try broader keywords, a different size, or a higher price limit.
+```
+
+**Criterion 3 — selected item and outfit survive handoffs, try 1:**
+
+Query: `vintage graphic tee under $30`; wardrobe: `example`.
+
+Actual trace from `agent.py::run_agent`, formatted by `trace.py::step`:
+
+```text
+Trace generated at: 2026-10-11T22:49:05-07:00
+[1] 2026-10-11T22:49:05-07:00 +0.000s (step 0.000s) parse_query
+      in:  vintage graphic tee under $30
+      out: dict with keys: description, size, max_price
+[2] 2026-10-11T22:49:05-07:00 +0.535s (step 0.534s) search_listings Using MCP
+      in:  dict with keys: description, size, max_price
+      out: 8 items: Graphic Tee — 2003 Tour Bootleg Style, Y2K Baby Tee — Butterfly Print, Vintage Graphic Hoodie — Faded Black … +5 more
+[3] 2026-10-11T22:49:05-07:00 +0.535s (step 0.000s) select_item
+      out: Graphic Tee — 2003 Tour Bootleg Style ($24.0, depop)
+[4] 2026-10-11T22:49:05-07:00 +0.535s (step 0.000s) compare_price
+      in:  Graphic Tee — 2003 Tour Bootleg Style ($24.0, depop)
+      out: dict with keys: listing_id, category, item_price, comparison_count, average_price, difference
+      →    status=above_average; peers=14; average=21.57; difference=2.43
+[5] 2026-10-11T22:49:05-07:00 +0.535s (step 0.000s) above-average price branch (Second Branch)
+      out: This item is $2.43 above the $21.57 average of 14 other tops listings in this dataset. This is a broad categor…
+      →    show a price warning and continue to suggest_outfit
+[6] 2026-10-11T22:49:07-07:00 +1.803s (step 1.268s) suggest_outfit
+      in:  Graphic Tee — 2003 Tour Bootleg Style ($24.0, depop)
+      out: **Outfit 1: Y2K Grunge Streetwear** * **New item to purchase:** Graphic Tee — 2003 Tour Bootleg Style * **Ward…
+[7] 2026-10-11T22:49:07-07:00 +2.499s (step 0.695s) create_fit_card
+      in:  dict with keys: outfit, new_item
+      out: Scored this faded Graphic Tee — 2003 Tour Bootleg Style for just $24.0 on depop! Tuck it into baggy jeans with…
+```
+
+Actual saved values captured by `run_eval.py::run_once` around
+`tools.py::suggest_outfit` and `tools.py::create_fit_card` (selected fields,
+with descriptive labels; values are unabridged):
+
+```json
+{
+  "selected_item_before_suggest_outfit": {
+    "id": "lst_006",
+    "title": "Graphic Tee — 2003 Tour Bootleg Style",
+    "description": "Vintage-style bootleg tee with faded graphic. Slightly boxy fit. 100% cotton, soft and worn-in.",
+    "category": "tops",
+    "style_tags": [
+      "graphic tee",
+      "vintage",
+      "grunge",
+      "streetwear",
+      "band tee"
+    ],
+    "size": "L",
+    "condition": "good",
+    "price": 24.0,
+    "colors": [
+      "black"
+    ],
+    "brand": null,
+    "platform": "depop"
+  },
+  "suggest_outfit_actual_new_item": {
+    "id": "lst_006",
+    "title": "Graphic Tee — 2003 Tour Bootleg Style",
+    "description": "Vintage-style bootleg tee with faded graphic. Slightly boxy fit. 100% cotton, soft and worn-in.",
+    "category": "tops",
+    "style_tags": [
+      "graphic tee",
+      "vintage",
+      "grunge",
+      "streetwear",
+      "band tee"
+    ],
+    "size": "L",
+    "condition": "good",
+    "price": 24.0,
+    "colors": [
+      "black"
+    ],
+    "brand": null,
+    "platform": "depop"
+  },
+  "create_fit_card_actual_new_item": {
+    "id": "lst_006",
+    "title": "Graphic Tee — 2003 Tour Bootleg Style",
+    "description": "Vintage-style bootleg tee with faded graphic. Slightly boxy fit. 100% cotton, soft and worn-in.",
+    "category": "tops",
+    "style_tags": [
+      "graphic tee",
+      "vintage",
+      "grunge",
+      "streetwear",
+      "band tee"
+    ],
+    "size": "L",
+    "condition": "good",
+    "price": 24.0,
+    "colors": [
+      "black"
+    ],
+    "brand": null,
+    "platform": "depop"
+  },
+  "stored_outfit_before_create_fit_card": "**Outfit 1: Y2K Grunge Streetwear**\n* **New item to purchase:** Graphic Tee — 2003 Tour Bootleg Style\n* **Wardrobe pieces used:** Baggy straight-leg jeans (dark wash), Black combat boots, Black crossbody bag\n* **Styling explanation:** Tuck the boxy graphic tee into the high-waisted baggy straight-leg jeans for an effortless Y2K silhouette. Anchor the look with black combat boots to lean into the grunge aesthetic, and finish with the black crossbody bag.\n\n**Outfit 2: Contrast Minimal-Street**\n* **New item to purchase:** Graphic Tee — 2003 Tour Bootleg Style\n* **Wardrobe pieces used:** Wide-leg khaki trousers, Brown leather belt, Chunky white sneakers\n* **Styling explanation:** Pair the faded black graphic tee with the wide-leg khaki trousers for a mix of vintage streetwear and earthy minimalism. Cinch the trousers with the brown leather belt and complete the outfit with chunky white sneakers for a casual, balanced contrast.",
+  "create_fit_card_actual_outfit": "**Outfit 1: Y2K Grunge Streetwear**\n* **New item to purchase:** Graphic Tee — 2003 Tour Bootleg Style\n* **Wardrobe pieces used:** Baggy straight-leg jeans (dark wash), Black combat boots, Black crossbody bag\n* **Styling explanation:** Tuck the boxy graphic tee into the high-waisted baggy straight-leg jeans for an effortless Y2K silhouette. Anchor the look with black combat boots to lean into the grunge aesthetic, and finish with the black crossbody bag.\n\n**Outfit 2: Contrast Minimal-Street**\n* **New item to purchase:** Graphic Tee — 2003 Tour Bootleg Style\n* **Wardrobe pieces used:** Wide-leg khaki trousers, Brown leather belt, Chunky white sneakers\n* **Styling explanation:** Pair the faded black graphic tee with the wide-leg khaki trousers for a mix of vintage streetwear and earthy minimalism. Cinch the trousers with the brown leather belt and complete the outfit with chunky white sneakers for a casual, balanced contrast."
+}
+```
+
+Actual displayed response produced by `tools.py::create_fit_card`, returned through `agent.py::run_agent`
+and recorded by `run_eval.py::run_once`:
+
+```text
+Scored this faded Graphic Tee — 2003 Tour Bootleg Style for just $24.0 on depop! Tuck it into baggy jeans with combat boots for effortless Y2K grunge, or pair it with khaki trousers and sneakers for an easy streetwear vibe. Such a good find! #depop #y2kstyle
+```
+
+**Criterion 4 — fit card stays short and grounded, try 5:**
+
+Query: `vintage graphic tee under $30`; wardrobe: `example`.
+
+Actual displayed response produced by `tools.py::create_fit_card`, returned through `agent.py::run_agent`
+and recorded by `run_eval.py::run_once`:
+
+```text
+Scored this dreamy Graphic Tee — 2003 Tour Bootleg Style on depop for just $24.0! I am obsessed with its perfectly worn-in, boxy grunge vibe. Style it with baggy dark-wash jeans and a zip hoodie for ultimate Y2K streetwear energy, or tuck it into khaki trousers with combat boots for an effortless contrast. 
+
+#depop #vintagestyle
+```
+
+This 55-word caption failed the content check because “Scored this” implied
+a completed purchase unsupported by the inputs. Its length was within the
+60-word limit. The other four attempts passed, meeting the overall 4/5 target.
+
+**Criterion 5 — owned first result advances to unowned result, try 1:**
+
+Query: `vintage graphic tee under $30`; wardrobe: `first_match_owned`.
+
+Actual trace from `agent.py::run_agent`, formatted by `trace.py::step`:
+
+```text
+Trace generated at: 2026-10-11T22:50:12-07:00
+[1] 2026-10-11T22:50:12-07:00 +0.000s (step 0.000s) parse_query
+      in:  vintage graphic tee under $30
+      out: dict with keys: description, size, max_price
+[2] 2026-10-11T22:50:13-07:00 +0.473s (step 0.473s) search_listings Using MCP
+      in:  dict with keys: description, size, max_price
+      out: 8 items: Graphic Tee — 2003 Tour Bootleg Style, Y2K Baby Tee — Butterfly Print, Vintage Graphic Hoodie — Faded Black … +5 more
+[3] 2026-10-11T22:50:13-07:00 +0.473s (step 0.000s) skip wardrobe duplicate
+      in:  Graphic Tee — 2003 Tour Bootleg Style ($24.0, depop)
+      out: skipped
+      →    category, meaningful name, and color match the wardrobe; size and price ignored
+[4] 2026-10-11T22:50:13-07:00 +0.473s (step 0.000s) select_item
+      out: Y2K Baby Tee — Butterfly Print ($18.0, depop)
+[5] 2026-10-11T22:50:13-07:00 +0.474s (step 0.000s) compare_price
+      in:  Y2K Baby Tee — Butterfly Print ($18.0, depop)
+      out: dict with keys: listing_id, category, item_price, comparison_count, average_price, difference
+      →    status=below_average; peers=14; average=22.0; difference=-4.0
+[6] 2026-10-11T22:50:13-07:00 +0.474s (step 0.000s) price comparison: no warning
+      out: below_average
+      →    continue to suggest_outfit
+[7] 2026-10-11T22:50:15-07:00 +2.620s (step 2.147s) suggest_outfit
+      in:  Y2K Baby Tee — Butterfly Print ($18.0, depop)
+      out: Here are two outfit suggestions incorporating the new Y2K baby tee and items from your wardrobe:  **Outfit 1: …
+[8] 2026-10-11T22:50:16-07:00 +3.439s (step 0.819s) create_fit_card
+      in:  dict with keys: outfit, new_item
+      out: Channel pure early-2000s magic with this Y2K Baby Tee — Butterfly Print! Styled with baggy jeans and chunky sn…
+```
+
+Actual displayed response produced by `tools.py::create_fit_card`, returned through `agent.py::run_agent`
+and recorded by `run_eval.py::run_once`:
+
+```text
+Channel pure early-2000s magic with this Y2K Baby Tee — Butterfly Print! Styled with baggy jeans and chunky sneakers, it’s the ultimate nostalgic streetwear look. Grab this gem for just $18.0 on depop before someone else snatches it up. #y2k #vintagestyle
+```
+
+**Criterion 5 — all matching results owned stops early, try 1:**
+
+Query: `vintage graphic tee under $30`; wardrobe: `all_matches_owned`.
+
+Actual trace from `agent.py::run_agent`, formatted by `trace.py::step`:
+
+```text
+Trace generated at: 2026-10-11T22:51:05-07:00
+[1] 2026-10-11T22:51:05-07:00 +0.000s (step 0.000s) parse_query
+      in:  vintage graphic tee under $30
+      out: dict with keys: description, size, max_price
+[2] 2026-10-11T22:51:06-07:00 +0.475s (step 0.475s) search_listings Using MCP
+      in:  dict with keys: description, size, max_price
+      out: 8 items: Graphic Tee — 2003 Tour Bootleg Style, Y2K Baby Tee — Butterfly Print, Vintage Graphic Hoodie — Faded Black … +5 more
+[3] 2026-10-11T22:51:06-07:00 +0.476s (step 0.000s) skip wardrobe duplicate
+      in:  Graphic Tee — 2003 Tour Bootleg Style ($24.0, depop)
+      out: skipped
+      →    category, meaningful name, and color match the wardrobe; size and price ignored
+[4] 2026-10-11T22:51:06-07:00 +0.476s (step 0.000s) skip wardrobe duplicate
+      in:  Y2K Baby Tee — Butterfly Print ($18.0, depop)
+      out: skipped
+      →    category, meaningful name, and color match the wardrobe; size and price ignored
+[5] 2026-10-11T22:51:06-07:00 +0.476s (step 0.000s) skip wardrobe duplicate
+      in:  Vintage Graphic Hoodie — Faded Black ($26.0, depop)
+      out: skipped
+      →    category, meaningful name, and color match the wardrobe; size and price ignored
+[6] 2026-10-11T22:51:06-07:00 +0.476s (step 0.000s) skip wardrobe duplicate
+      in:  Mesh Long-Sleeve Top — Black ($15.0, depop)
+      out: skipped
+      →    category, meaningful name, and color match the wardrobe; size and price ignored
+[7] 2026-10-11T22:51:06-07:00 +0.476s (step 0.000s) skip wardrobe duplicate
+      in:  Vintage Band Tee — Faded Grey ($19.0, depop)
+      out: skipped
+      →    category, meaningful name, and color match the wardrobe; size and price ignored
+[8] 2026-10-11T22:51:06-07:00 +0.476s (step 0.000s) skip wardrobe duplicate
+      in:  Low-Rise Cargo Pants — Khaki ($27.0, poshmark)
+      out: skipped
+      →    category, meaningful name, and color match the wardrobe; size and price ignored
+[9] 2026-10-11T22:51:06-07:00 +0.476s (step 0.000s) skip wardrobe duplicate
+      in:  Oversized Crewneck Sweatshirt — Vintage Navy ($20.0, thredUp)
+      out: skipped
+      →    category, meaningful name, and color match the wardrobe; size and price ignored
+[10] 2026-10-11T22:51:06-07:00 +0.476s (step 0.000s) skip wardrobe duplicate
+      in:  Vintage Knit Vest — Argyle Brown/Cream ($25.0, thredUp)
+      out: skipped
+      →    category, meaningful name, and color match the wardrobe; size and price ignored
+[11] 2026-10-11T22:51:06-07:00 +0.476s (step 0.000s) wardrobe-owned branch
+      out: All matching listings already appear in the user's wardrobe. Try a different description, size, or price limit…
+      →    skipping owned results and stopping
+```
+
+Actual displayed response produced by `agent.py::run_agent`
+and recorded by `run_eval.py::run_once`:
+
+```text
+All matching listings already appear in the user's wardrobe. Try a different description, size, or price limit.
+```
+
+[Original before report](results/run_2026-10-11_2251_before.md) ·
+[Full session and handoff evidence](results/run_2026-10-11_224757_302771_evidence.jsonl).
 
 ---
 

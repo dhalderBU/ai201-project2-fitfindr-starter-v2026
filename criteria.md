@@ -38,7 +38,8 @@ failure to investigate; it is a small acceptance sample, not a reliability estim
 Given a query that matches no listings, the agent stops before calling
 `suggest_outfit` and returns a message naming what to change — 5 of 5 tries.
 
-**Pass for one try:** `search_listings` returns `[]`; neither `suggest_outfit`
+**Pass for one try:** `search_listings` returns `[]` after at most one retry
+without the size filter (only when size was supplied); neither `suggest_outfit`
 nor `create_fit_card` is called. The final session has `selected_item`,
 `outfit_suggestion`, and `fit_card` equal to `None`. Its `error` message is
 shown to the user and suggests at least one concrete change: broaden the
@@ -222,3 +223,11 @@ and outfit; that is a different experiment. No targets or quality checks were
 relaxed. Criterion 1's accidentally copied card-quality testing paragraph was
 replaced with completion checks. These corrections do not claim to predate
 earlier project work or testing.
+
+### Search-retry clarification before stretch evaluation
+
+Criterion 2 now stops after the permitted size-relaxation retry also returns no
+results. Its fixed impossible query remains impossible within the unchanged $5
+budget, so the target remains 5/5. Recovery after an initial empty search is
+tested separately using a query whose size-free version has matches. The
+original no-retry branch requirement is retained in earlier run evidence.
