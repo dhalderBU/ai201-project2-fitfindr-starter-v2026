@@ -1398,20 +1398,46 @@ All matching listings already appear in the user's wardrobe. Try a different des
 
      Look for a pattern. Three misses on the same tool is one problem, not
      three. -->
-
 | # | Criterion | Target | Verdict | How I decided |
 |---|---|---|---|---|
-| 1 |  |  |  |  |
-| 2 |  |  |  |  |
-| 3 |  |  |  |  |
-| 4 |  |  |  |  |
-| 5 |  |  |  |  |
+| 1 | Matching query completes | At least 4 of 5 | MET (5/5) | All five tries completed search, outfit suggestion, and fit-card creation in order. Each session contained a selected search result, an outfit, a nonblank card, and no error. |
+| 2 | Empty search stops safely | 5 of 5 | MET (5/5) | All five searches returned no matches and stopped before either downstream tool. The displayed message suggested broader keywords, another size, or a higher budget. |
+| 3 | State survives handoffs | 5 of 5 | MET (5/5) | Complete selected-item dictionaries matched the search results and both downstream arguments. The actual fit-card outfit argument matched the saved session snapshot. Both handoffs completed in every try, with no extra input requests. |
+| 4 | Fit-card quality | At least 4 of 5 | MET (4/5) | Tries 1–4 passed every content check. Try 5 implied a completed purchase with “Scored this” and failed ownership grounding. Word counts were 45, 50, 47, 48, and 55; all passed the 60-word limit. |
+| 5 | Owned result advances search | 5 of 5 | MET (5/5) | Each skip-owned try recorded and skipped lst_006, then passed lst_002 to both downstream tools. Each companion all-owned try stopped with a clear message. No extra input was requested; inspection confirmed that duplicate matching ignored size and price. |
 
 **Diagnoses**
 
+All baseline criteria met their targets. Criteria 1, 2, 3, and 5 passed 5/5;
+criterion 4 passed 4/5, meeting its original 4/5 target.
 
+**Failed attempt:** Criterion 4, try 5.
+
+**Step / failure location:** Fit-card generation in `tools.py::create_fit_card`;
+the failure was in the model's output and the tool's validation.
+
+**Mechanism:** The model wrote “Scored this,” implying a purchase unsupported
+by the inputs. The tool checked for blank output and length but did not check
+purchase claims, so the misleading caption reached the user. Item selection
+and session handoffs were correct.
+
+**What I would tighten:** Criterion 4's target allowed this failure. I would
+require 5/5 in a future evaluation. The original target and MET (4/5) verdict
+stay unchanged.
+
+**Pattern and verdict check:** One failure does not establish a pattern, but
+it reveals a missing validation check. The misleading caption is a reason to
+strengthen validation and the future target; it does not change the baseline's
+MET verdict under the original 4/5 requirement.
+
+**Criterion changes:** No criterion was revised to change these baseline verdicts as the criteria was met but I wanted to improve one of the criteria i.e criteria 4. Criterion 4 was measurable, and its original 4/5 target remains unchanged. The proposed 5/5 target is for future testing only.
+
+**The measured changes address that failure: concrete purchase-wording examples in the prompt, followed by a targeted check and one regeneration attempt** 
 
 ---
+
+**I have implemented the stretch feature already and now the MCP also contains the suggest_outfit and it will show up in the log**
+
 
 ## Loop Trace
 
@@ -1427,22 +1453,79 @@ All matching listings already appear in the user's wardrobe. Try a different des
 
 **Happy path**
 
+Actual criterion 1, try 1 from the final `after_guard` evaluation, with the fixed
+example wardrobe and caching disabled. Query: `vintage graphic tee under $30`.
+Produced by `agent.py::run_agent`, formatted by `trace.py::step`, and captured by
+`run_eval.py::run_once`. `[MCP:SEARCH]` and `[MCP:OUTFIT]` identify the two MCP calls;
+fit-card creation remains local.
+
+```text
+Trace generated at: 2026-10-12T00:08:20-07:00
+[1] 2026-10-12T00:08:20-07:00 +0.000s (step 0.000s) parse_query
+      in:  vintage graphic tee under $30
+      out: dict with keys: description, size, max_price
+[2] 2026-10-12T00:08:21-07:00 +0.995s (step 0.995s) [MCP:SEARCH] search_listings
+      in:  dict with keys: description, size, max_price
+      out: 8 items: Graphic Tee — 2003 Tour Bootleg Style, Y2K Baby Tee — Butterfly Print, Vintage Graphic Hoodie — Faded Black … +5 more
+[3] 2026-10-12T00:08:21-07:00 +0.995s (step 0.000s) select_item
+      out: Graphic Tee — 2003 Tour Bootleg Style ($24.0, depop)
+[4] 2026-10-12T00:08:21-07:00 +0.996s (step 0.000s) compare_price
+      in:  Graphic Tee — 2003 Tour Bootleg Style ($24.0, depop)
+      out: dict with keys: listing_id, category, item_price, comparison_count, average_price, difference
+      →    status=above_average; peers=14; average=21.57; difference=2.43
+[5] 2026-10-12T00:08:21-07:00 +0.996s (step 0.000s) above-average price branch (Second Branch)
+      out: This item is $2.43 above the $21.57 average of 14 other tops listings in this dataset. This is a broad categor…
+      →    show a price warning and continue to suggest_outfit
+[6] 2026-10-12T00:08:24-07:00 +3.714s (step 2.718s) [MCP:OUTFIT] suggest_outfit
+      in:  Graphic Tee — 2003 Tour Bootleg Style ($24.0, depop)
+      out: **Outfit 1: 90s Grunge Streetwear** * **New Item:** Graphic Tee — 2003 Tour Bootleg Style * **Wardrobe Pieces:…
+[7] 2026-10-12T00:08:25-07:00 +4.991s (step 1.276s) [FITCARD:ACCEPT] validated caption
+      →    words=54; ownership retries=0
+[8] 2026-10-12T00:08:25-07:00 +4.991s (step 0.000s) create_fit_card
+      in:  dict with keys: outfit, new_item
+      out: Consider this Graphic Tee — 2003 Tour Bootleg Style for just $24.0 on depop to nail that effortless 90s grunge…
 ```
 
+Displayed response:
+
+```text
+Consider this Graphic Tee — 2003 Tour Bootleg Style for just $24.0 on depop to nail that effortless 90s grunge streetwear vibe. Pair the boxy, worn-in tee with baggy dark wash jeans and black combat boots for an instantly cool, slouchy silhouette. It’s the ultimate piece to anchor your edgy wardrobe rotation. #thrifted #grunge
 ```
 
 **Empty search**
 
+Actual criterion 2, try 1 from the same evaluation and wardrobe. Query:
+`designer ballgown size XXS under $5`. The trace is shorter: five agent steps
+instead of eight. It searches, retries once without size, then stops. No outfit
+or fit-card tool is called. The description and $5 limit are unchanged.
+
+```text
+Trace generated at: 2026-10-12T00:08:39-07:00
+[1] 2026-10-12T00:08:39-07:00 +0.000s (step 0.000s) parse_query
+      in:  designer ballgown size XXS under $5
+      out: dict with keys: description, size, max_price
+[2] 2026-10-12T00:08:39-07:00 +0.510s (step 0.510s) [MCP:SEARCH] search_listings
+      in:  dict with keys: description, size, max_price
+      out: [] (empty)
+[3] 2026-10-12T00:08:39-07:00 +0.510s (step 0.000s) [RETRY:SIZE] retry search once
+      in:  dict with keys: description, size, max_price
+      →    No matches for size XXS. Retried once without the size filter; description and budget unchanged. Check each alternative's size.
+[4] 2026-10-12T00:08:40-07:00 +0.904s (step 0.394s) [MCP:SEARCH:RETRY] search_listings
+      in:  dict with keys: description, size, max_price
+      out: [] (empty)
+[5] 2026-10-12T00:08:40-07:00 +0.904s (step 0.000s) empty-search branch
+      out: No listings matched. Try broader keywords, a different size, or a higher price limit.
+      →    stopping before suggest_outfit
 ```
 
+Displayed response:
+
+```text
+No listings matched. Try broader keywords, a different size, or a higher price limit.
 ```
 
-**On the MCP move:** <!-- what changed in your code, and whether anything
-behaved differently afterwards. If the rewire didn't work, say exactly where it
-broke — the error text and the last thing that worked. That earns the point in
-full. -->
-
-
+**On the MCP move:** I changed agent.py to call search_listings and suggest_outfit through mcp_client.py::call_tool, with both tools registered in mcp_server.py. create_fit_card remains a direct call. The happy path completed, and the empty-search path stopped before styling.
+An earlier run failed with The server doesn't offer a tool called 'suggest_outfit' because only search was registered. After restoring the outfit registration, both MCP calls completed.
 
 ---
 
