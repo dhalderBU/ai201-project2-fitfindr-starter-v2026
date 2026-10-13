@@ -116,7 +116,7 @@ def search_listings(
 #
 # FastMCP builds the input schema from your type hints, which is why the hints
 # are not optional here. `description: str` becomes a required string;
-# `max_price: float | None = None` becomes an optional number. Getting these
+# `max_price:  float | None = None` becomes an optional number. Getting these
 # wrong is the most common reason a call is rejected.
 
 
