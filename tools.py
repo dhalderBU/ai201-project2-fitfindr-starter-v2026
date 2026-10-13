@@ -237,6 +237,15 @@ def suggest_outfit(new_item: dict, wardrobe: dict) -> str:
 
 # ── Tool 3: create_fit_card ───────────────────────────────────────────────────
 
+def _claims_completed_purchase(card: str) -> bool:
+    """Catch the observed ownership wording; not a general factuality checker."""
+    return bool(re.search(
+        r"\b(?:scored\s+(?:this|that|the)|(?:i|we)\s+(?:(?:just|already)\s+)?"
+        r"(?:bought|purchased|snagged|scored|picked\s+up)|my\s+new\s+"
+        r"(?:tee|shirt|jacket|find))\b", card, flags=re.IGNORECASE,
+    ))
+
+
 def create_fit_card(outfit: str, new_item: dict) -> str:
     """
     Write a short caption someone would actually post about the find.
@@ -299,7 +308,9 @@ def create_fit_card(outfit: str, new_item: dict) -> str:
         if explicitly_owned
         else "Do not present the item as something the user already owns. "
         "Treat it as a suggested purchase or styling idea unless the outfit "
-        "explicitly says otherwise."
+        "explicitly says otherwise. Never say 'Scored this', 'I bought', "
+        "'I snagged', or 'I picked up': these imply a completed purchase. "
+        "Use prospective wording such as 'Consider this' or 'Pair this with'."
     )
 
     prompt = (
@@ -322,6 +333,7 @@ def create_fit_card(outfit: str, new_item: dict) -> str:
         "Write one polished, concise caption in a warm, personal voice. "
         "Keep it to 60 words or fewer. Return only the caption."
     )
+    ownership_retries = 0
     for attempt in range(config.MAX_RETRIES):
         card = generate(prompt, system=system, cache=False).strip()
         if not card:
@@ -340,6 +352,16 @@ def create_fit_card(outfit: str, new_item: dict) -> str:
                 )
             continue
 
+        if not explicitly_owned and _claims_completed_purchase(card):
+            trace.step("[FITCARD:OWNERSHIP] rejected purchase claim", returned=card,
+                       note="retry once" if ownership_retries == 0 else "stop; retry exhausted")
+            if ownership_retries or attempt == config.MAX_RETRIES - 1:
+                raise ValueError("Fit card still claims a completed purchase after ownership validation.")
+            ownership_retries += 1
+            prompt += ("\n\nThe previous caption claimed a completed purchase. "
+                       "Rewrite as a suggestion to buy; use 'Consider this' and no past purchase claim.")
+            continue
+
         word_count = len(card.split())
         if word_count > 60:
             trace.step(
@@ -348,6 +370,7 @@ def create_fit_card(outfit: str, new_item: dict) -> str:
                 note="caption exceeded 60 words; trimming to the first 60 words",
             )
             card = " ".join(card.split()[:60])
+        trace.step("[FITCARD:ACCEPT] validated caption", note=f"words={len(card.split())}; ownership retries={ownership_retries}")
         return card
 
     raise RuntimeError("create_fit_card exited without producing a caption")

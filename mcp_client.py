@@ -29,6 +29,9 @@ right trade for one unit.
 import asyncio
 import json
 import sys
+import os
+import config
+import trace as fitfindr_trace
 from pathlib import Path
 
 SERVER = Path(__file__).parent / "mcp_server.py"
@@ -75,6 +78,10 @@ async def _call(name: str, arguments: dict):
     params = StdioServerParameters(
         command=sys.executable,
         args=[str(SERVER)],
+        env={**os.environ, "AI201_CACHE": "1" if config.CACHE_ENABLED else "0",
+             "AI201_MODEL": config.MODEL,
+             "AI201_MCP_TRACE": "1" if fitfindr_trace.is_enabled() else "0",
+             "AI201_MCP_TRACE_MINIMAL": "1" if fitfindr_trace.is_minimal() else "0"},
     )
 
     async with stdio_client(params) as (read, write):

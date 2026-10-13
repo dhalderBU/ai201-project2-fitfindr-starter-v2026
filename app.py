@@ -114,7 +114,7 @@ def _ask_one(query, wardrobe, use_trace, wardrobe_source="provided"):
     from agent import run_agent
     import trace as trace_module
 
-    trace_module.start_trace(enabled=use_trace)
+    trace_module.start_trace(enabled=bool(use_trace), minimal=use_trace == "minimal")
     trace_module.step(
         "wardrobe memory",
         returned=f"source={wardrobe_source}; items={len(wardrobe['items'])}",
@@ -126,6 +126,8 @@ def _ask_one(query, wardrobe, use_trace, wardrobe_source="provided"):
     session["wardrobe_source"] = wardrobe_source
 
     print()
+    if session.get("search_notice"):
+        print(f"  {session['search_notice']}")
     comparison = session["price_comparison"]
     if comparison:
         if comparison["average_price"] is None:
@@ -283,6 +285,8 @@ def build_parser():
     p_ask = sub.add_parser("ask", help="run the agent")
     p_ask.add_argument("query", nargs="?")
     p_ask.add_argument("--trace", action="store_true", help="print the loop step by step")
+    p_ask.add_argument("--trace-minimal", dest="trace", action="store_const", const="minimal",
+                       help="print step names and decisions without tool payloads")
     p_ask.add_argument(
         "--empty-wardrobe",
         action="store_true",

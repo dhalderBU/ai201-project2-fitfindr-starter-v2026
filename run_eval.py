@@ -36,7 +36,6 @@ import json
 import io
 import inspect
 import hashlib
-import subprocess
 from copy import deepcopy
 from contextlib import redirect_stdout
 from unittest.mock import patch
@@ -108,6 +107,9 @@ def run_once(scenario, use_trace=True):
     # Display the exact returned error or card, without shortening it.
     record["displayed_response"] = session.get("error") or card or record["crashed"] or ""
     print(record["stdout"], end="")
+    record["search_notice"] = session.get("search_notice")
+    if record["search_notice"]:
+        print(record["search_notice"])
     print(record["displayed_response"])
 
     return record
@@ -148,8 +150,6 @@ def main():
     metadata = {"kind": "metadata", "model": config.MODEL,
                 "temperature": config.TEMPERATURE, "cache_enabled": config.CACHE_ENABLED,
                 "tries": args.tries, "label": args.label,
-                "commit": subprocess.run(["git", "rev-parse", "HEAD"], capture_output=True,
-                                         text=True).stdout.strip(),
                 "source_sha256": {name: hashlib.sha256((config.ROOT / name).read_bytes()).hexdigest()
                                   for name in sources}}
     args.evidence_path.write_text(json.dumps(metadata) + "\n", encoding="utf-8")

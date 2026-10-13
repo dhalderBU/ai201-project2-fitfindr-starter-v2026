@@ -59,10 +59,14 @@ works with a direct call, and **a documented failure earns the point in full.**
 
 from contextlib import redirect_stdout
 import sys
+import os
+from copy import deepcopy
 
 from mcp.server.fastmcp import FastMCP
 
 import trace as fitfindr_trace
+import config
+from tools import suggest_outfit as _suggest_outfit_impl
 from tools import search_listings as _search_listings_impl  # noqa: F401 — you'll use this below
 
 # log_level="WARNING" keeps the server from printing an INFO line for every
@@ -84,9 +88,10 @@ def search_listings(
     """
     # MCP uses stdout for its protocol messages, so send trace output to stderr.
     with redirect_stdout(sys.stderr):
-        fitfindr_trace.start_trace()
+        fitfindr_trace.start_trace(enabled=os.getenv("AI201_MCP_TRACE", "0") == "1",
+                                  minimal=os.getenv("AI201_MCP_TRACE_MINIMAL", "0") == "1")
         fitfindr_trace.step(
-            "search_listings (MCP server)",
+            "[MCP:SERVER:SEARCH] search_listings received",
             inputs={
                 "description": description,
                 "size": size,
@@ -94,7 +99,10 @@ def search_listings(
             },
             note="received request; executing listing search",
         )
-    return _search_listings_impl(description, size, max_price)
+        results = _search_listings_impl(description, size, max_price)
+        fitfindr_trace.step("[MCP:SERVER:SEARCH] search_listings completed",
+                           returned=results, note=f"matches={len(results)}")
+    return results
 #
 # ──────────────────────────────────────────────────────────────────────────────
 #
@@ -110,6 +118,29 @@ def search_listings(
 # are not optional here. `description: str` becomes a required string;
 # `max_price: float | None = None` becomes an optional number. Getting these
 # wrong is the most common reason a call is rejected.
+
+
+@mcp.tool()
+def suggest_outfit(new_item: dict, wardrobe: dict) -> dict:
+    """Suggest outfits for a complete listing and wardrobe.items.
+
+    Empty wardrobes receive general purchase suggestions. Returns outfit text,
+    received input snapshots, and the server's cache setting for handoff checks.
+    """
+    received = deepcopy({"new_item": new_item, "wardrobe": wardrobe})
+    with redirect_stdout(sys.stderr):
+        fitfindr_trace.start_trace(enabled=os.getenv("AI201_MCP_TRACE", "0") == "1",
+                                  minimal=os.getenv("AI201_MCP_TRACE_MINIMAL", "0") == "1")
+        fitfindr_trace.step(
+            "[MCP:SERVER:OUTFIT] suggest_outfit received",
+            inputs={"new_item": new_item, "wardrobe": wardrobe},
+            note="received request; executing outfit suggestion",
+        )
+        outfit = _suggest_outfit_impl(new_item, wardrobe)
+        fitfindr_trace.step("[MCP:SERVER:OUTFIT] suggest_outfit completed", returned=outfit,
+                           note=f"characters={len(outfit)}")
+    return {"outfit": outfit, "received": received,
+            "cache_enabled": config.CACHE_ENABLED}
 
 
 if __name__ == "__main__":

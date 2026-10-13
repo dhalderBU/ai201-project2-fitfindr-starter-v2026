@@ -21,7 +21,6 @@
 
 ---
 
-<!-- ──── Milestone 1   ───── -->
 ### Three fields in the listings file :
 
 Three files in the listings file are :
@@ -30,26 +29,11 @@ Three files in the listings file are :
 - Size
 
 
-<!-- ─────────────────────────────────────────────────────────────────────────
-     HOW TO USE THIS FILE
 
-     This is your submission. Fill each section in as you finish the milestone
-     it belongs to — don't leave it all to the end.
-
-     Unit 3 asks for the first five sections. Unit 4 adds the five below them.
-     Leave the unit 4 sections alone until then; they're here so you know
-     what's coming.
-
-     Everything is pasted as TEXT. No screenshots, no images, no video links.
-     A typed block of output gets full credit; a picture of the same output
-     gets none.
-     ───────────────────────────────────────────────────────────────────────── -->
-
-<!-- ═══════════════════════ UNIT 3 — THE BUILD ═══════════════════════ -->
 
 ## What This Does
 
-<!-- Three or four sentences: what a user asks for, and what they get back. -->
+
 This application searches for clothing and garments(from listing) based on inputs 
 like a) description b)size and c) price. 
 The system generates search results from listing (if available) and then generates 
@@ -61,19 +45,10 @@ This comparison uses the supplied dataset and makes no additional model call.
 
 ---
 
-<!-- ──── Milestone 2   ───── -->
 
 ## Tool Inventory
 
-<!-- Four lines per tool. This is worth 2 points and it's the single most
-     common place students lose them.
 
-     "Returns a list" earns NOTHING. The description has to say what is IN
-     the list.
-
-     The empty case isn't optional either — it's the thing your loop branches
-     on, and if you don't decide it here you'll discover it as a crash in
-     Milestone 5. -->
 
 ### `search_listings`
 
@@ -139,7 +114,6 @@ not evidence of any other statistical significance for this app.
 
 ## Planning Loop
 
-<!-- Your branch rule, stated as a rule — the condition AND both paths — plus
      the file and function that holds it.
 
      Like this:
@@ -194,10 +168,7 @@ how universal-size items are handled.
 
 ## Sample Run
 
-<!-- Two things go here.
 
-     1. One FULL query and its output, pasted as text.
-     2. Your three per-tool terminal tests — the command and what it printed. -->
 
 ### Sample Run — Stretch features
 
@@ -228,7 +199,7 @@ python -c 'import json; from tools import compare_price; from utils.data_loader 
 }
 ```
 
-**Fourth tool and Second Branch — above-average price (trace excerpt)**
+**Fourth tool and Second Branch — above-average price (trace)**
 
 
 
@@ -258,7 +229,7 @@ The condition is `status == "above_average"`: the loop stores the $1.14 warning
 and continues through both model tools, as shown in the complete execution log.
 The warning is displayed separately from the fit card.
 
-**Below-average path — trace excerpt**
+**Below-average path — trace**
 (Loaded saved wardrobe: 10 items)
 Trace generated at: 2026-10-11T03:03:08-07:00
 [1] 2026-10-11T03:03:08-07:00 +0.000s (step 0.000s) wardrobe memory
@@ -639,12 +610,7 @@ Score! These Vintage Levi's 501 Jeans — Medium Wash bring that effortless, liv
 
 ## How I Used AI
 
-<!-- Two specific moments. What you asked, what came back, what you changed.
 
-     "I used Claude to help me code" is not enough.
-
-     "I gave Claude my search_listings spec. It returned None on no match
-     instead of an empty list, so I changed it" is the level we want. -->
 
 **Moment 1**
 
@@ -1531,33 +1497,312 @@ An earlier run failed with The server doesn't offer a tool called 'suggest_outfi
 
 ## The Improvement
 
-<!-- What you changed, why your diagnosis pointed at it, and the after-run in
-     the same table format. One change, measured properly.
+**What I changed:** Strengthened the prompt in `tools.py::create_fit_card` to
+prohibit purchase claims such as “Scored this” and request wording such as
+“Consider this.” This table measures the prompt change before the later
+ownership validator was added.
 
-     `python run_eval.py --label after` -->
-
-**What I changed:**
-
-**Which failure it was meant to fix:**
+**Which failure it was meant to fix:** Criterion 4, try 5 in the baseline
+implied the user had bought an item that was only being recommended.
 
 ### Run Log — After
 
+Saved prompt-change run: five tries per scenario, caching off,
+`gemini-3.5-flash-lite`, temperature 0.9. Original targets are unchanged.
+
 | Criterion | Target | Try 1 | Try 2 | Try 3 | Try 4 | Try 5 | Verdict |
 |---|---|---|---|---|---|---|---|
-| 1.  |  |  |  |  |  |  |  |
-| 2.  |  |  |  |  |  |  |  |
-| 3.  |  |  |  |  |  |  |  |
-| 4.  |  |  |  |  |  |  |  |
-| 5.  |  |  |  |  |  |  |  |
+| 1. Matching query completes | 4 of 5 | PASS | PASS | PASS | FAIL | FAIL | MISSED (3/5) |
+| 2. Empty search stops safely | 5 of 5 | PASS | PASS | PASS | PASS | PASS | MET (5/5) |
+| 3. State survives handoffs | 5 of 5 | PASS | PASS | PASS | PASS | PASS | MET (5/5) |
+| 4. Fit-card quality | 4 of 5 | PASS | PASS | PASS | PASS | PASS | MET (5/5) |
+| 5. Owned result advances search | 5 of 5 | PASS | PASS | PASS | PASS | PASS | MET (5/5) |
 
-**Did it help, and how do I know:**
+**Did it help, and how do I know:** Fit-card quality rose from 4/5 to 5/5.
+However, criterion 1 fell from 5/5 to 3/5: tries 4 and 5 failed when
+`create_fit_card` received model-service `503 UNAVAILABLE` errors (when I changed the API KEY to an invalid key). Those
+failures count. The run also included the MCP-outfit move and size retry,
+so it does not isolate the prompt change from all other changes.
 
-<!-- If it made things worse, say that. Honestly reported, that earns full
-     credit and is more interesting than one that worked. -->
-
-
+[Generated after report](results/stretch_mcp_retry/after_prompt/runtime/results/run_2026-10-12_0008_after_prompt.md) ·
+[Full execution evidence](results/stretch_mcp_retry/after_prompt/runtime/results/run_2026-10-12_000336_690822_evidence.jsonl).
 
 ---
+
+## Stretch Features implemented
+
+**1. A second tool moved onto MCP**
+
+**What changed:** `suggest_outfit` now runs through MCP alongside
+`search_listings`. Previously, the agent called the outfit function directly.
+`agent.py::run_agent` now sends the complete selected-item and wardrobe
+dictionaries through `mcp_client.py::call_tool` to the registered
+`mcp_server.py::suggest_outfit` tool. The server calls the styling implementation
+in `tools.py` and returns the generated outfit text, snapshots of the inputs it
+received, and its cache setting. The client also forwards the evaluation's
+cache-off setting to the server.
+
+**Flow:**
+
+1. Parse the query and call `search_listings` through MCP to retrieve candidates.
+2. Select the first candidate not already represented in the wardrobe and compare
+   its price. An above-average price produces a warning; styling still continues.
+3. Call `suggest_outfit` through MCP with the selected item as `new_item` and the
+   saved wardrobe as `wardrobe`. The server runs the LLM-backed styling function,
+   which asks for one or two outfits for that one item.
+4. Return `outfit`, `received`, and `cache_enabled` to the agent. Store the response
+   in `session["mcp_outfit_evidence"]` and the outfit text in
+   `session["outfit_suggestion"]`.
+5. Pass the outfit text and selected item to `create_fit_card` to generate the
+   caption. This caption step remains a direct call from the agent.
+
+**Trace**
+
+The query was `vintage graphic tee under $30`. Search returned eight candidates,
+and the agent selected `Graphic Tee — 2003 Tour Bootleg Style` at $24.00. It
+reported that the price was $2.43 above the category average, then completed
+outfit generation through MCP and generated the caption.
+
+The following application trace is copied from the saved execution, excluding
+the separate test-summary line. `agent.py::run_agent` supplies the
+`[MCP:SEARCH]` and `[MCP:OUTFIT]` labels; `trace.py::step` formats the output.
+This is an existing live run, not a new execution.
+
+```text
+Trace generated at: 2026-10-11T23:56:47-07:00
+[1] 2026-10-11T23:56:47-07:00 +0.001s (step 0.001s) parse_query
+      in:  vintage graphic tee under $30
+      out: dict with keys: description, size, max_price
+[2] 2026-10-11T23:56:48-07:00 +0.883s (step 0.882s) [MCP:SEARCH] search_listings
+      in:  dict with keys: description, size, max_price
+      out: 8 items: Graphic Tee — 2003 Tour Bootleg Style, Y2K Baby Tee — Butterfly Print, Vintage Graphic Hoodie — Faded Black … +5 more
+[3] 2026-10-11T23:56:48-07:00 +0.884s (step 0.000s) select_item
+      out: Graphic Tee — 2003 Tour Bootleg Style ($24.0, depop)
+[4] 2026-10-11T23:56:48-07:00 +0.884s (step 0.000s) compare_price
+      in:  Graphic Tee — 2003 Tour Bootleg Style ($24.0, depop)
+      out: dict with keys: listing_id, category, item_price, comparison_count, average_price, difference
+      →    status=above_average; peers=14; average=21.57; difference=2.43
+[5] 2026-10-11T23:56:48-07:00 +0.884s (step 0.000s) above-average price branch (Second Branch)
+      out: This item is $2.43 above the $21.57 average of 14 other tops listings in this dataset. This is a broad categor…
+      →    show a price warning and continue to suggest_outfit
+[6] 2026-10-11T23:56:57-07:00 +9.891s (step 9.007s) [MCP:OUTFIT] suggest_outfit
+      in:  Graphic Tee — 2003 Tour Bootleg Style ($24.0, depop)
+      out: **Outfit 1: 90s Grunge Streetwear** * **New item to purchase:** Graphic Tee — 2003 Tour Bootleg Style * **Ward…
+[7] 2026-10-11T23:57:08-07:00 +21.434s (step 11.543s) create_fit_card
+      in:  dict with keys: outfit, new_item
+      out: Scored this vintage-vibed Graphic Tee — 2003 Tour Bootleg Style for just $24.0 on depop! Pair it with baggy je…
+```
+
+The saved session confirms that `mcp_outfit_evidence.received.new_item` equals
+`selected_item`, `received.wardrobe` equals the session wardrobe, and
+`cache_enabled` is `false`. The returned outfit text also matches
+`session["outfit_suggestion"]`. These recorded values provide the input-handoff
+and cache evidence independently of the saved test-summary label.
+
+**Generated caption from the same run:**
+
+> Scored this vintage-vibed Graphic Tee — 2003 Tour Bootleg Style for just $24.0 on depop! Pair it with baggy jeans and combat boots for the ultimate effortless grunge look, or layer it with a black denim jacket and khaki trousers. Such an easy win for your streetwear rotation! #grunge #streetwear
+
+This historical caption's “Scored” wording implies a completed purchase; the
+MCP handoff evidence does not establish that the caption's wording was correct.
+
+[Saved execution output](results/stretch_mcp_retry/second_mcp_tool.txt) ·
+[Session inputs and results](results/stretch_mcp_retry/second_mcp_tool.json).
+
+
+**2. Retry with looser constraints**
+An empty search retries once without the size filter. The run log shows the retry and says which constraint was dropped.
+
+Implemented in `agent.py::run_agent`: if search is empty and size was supplied,
+make exactly one more MCP search with `size=None`. Keep description and budget
+unchanged. Stop if it is still empty; otherwise continue to styling. Queries
+without a size do not repeat an identical search. `app.py::_ask_one` displays a
+notice that alternative sizes must be checked. `session["search_attempts"]`
+retains both argument sets and result sets.
+
+**What changed:** Previously, an empty search stopped the flow immediately.
+`agent.py::run_agent` now retries once when the original query included a size,
+removing only that size filter. The description and maximum price stay the same.
+It records both attempts in `session["search_attempts"]`, and the CLI displays a
+notice asking the user to check the sizes of the alternatives.
+
+**Flow:**
+
+1. Parse the query and call `search_listings` through MCP with the original filters.
+2. If results are empty and a size was supplied, log `[RETRY:SIZE]` and make one
+   more MCP search with `size=None`. Log its result as `[MCP:SEARCH:RETRY]`.
+3. If the retry is also empty, stop before outfit generation and suggest changing
+   the search. An empty search without a size stops without an identical retry.
+4. If results are found, select the first candidate not already represented in
+   the wardrobe, compare its price, call `suggest_outfit` through MCP with that
+   item and the wardrobe, then generate the fit-card caption. If all candidates
+   are already represented in the wardrobe, stop before styling.
+
+**Trace**
+
+The query was `vintage graphic tee size XXS under $30`, using the example
+wardrobe with caching disabled. The saved session records zero results for
+`description="vintage graphic tee", size="XXS", max_price=30.0`, then eight
+results for the same description and budget with `size=None`. The selected
+alternative was `Graphic Tee — 2003 Tour Bootleg Style`, size L, at $24.00;
+the retry offers alternative sizes rather than finding an XXS match.
+
+The following is the application/server trace copied from the saved execution,
+without the separate test-summary line. `agent.py` and `mcp_server.py` supply
+the search/retry labels; `trace.py::step` formats the timestamps and timings.
+Server step numbering restarts for each MCP process. This is an existing live
+run, not a new execution or the stubbed unit-test output.
+
+```text
+Trace generated at: 2026-10-12T00:11:34-07:00
+[1] 2026-10-12T00:11:34-07:00 +0.001s (step 0.001s) parse_query
+Trace generated at: 2026-10-12T00:11:35-07:00
+[1] 2026-10-12T00:11:35-07:00 +0.000s (step 0.000s) [MCP:SERVER:SEARCH] search_listings received
+      →    received request; executing listing search
+[2] 2026-10-12T00:11:35-07:00 +0.001s (step 0.001s) [MCP:SERVER:SEARCH] search_listings completed
+      →    matches=0
+[2] 2026-10-12T00:11:35-07:00 +0.855s (step 0.854s) [MCP:SEARCH] search_listings
+[3] 2026-10-12T00:11:35-07:00 +0.855s (step 0.000s) [RETRY:SIZE] retry search once
+      →    No matches for size XXS. Retried once without the size filter; description and budget unchanged. Check each alternative's size.
+Trace generated at: 2026-10-12T00:11:35-07:00
+[1] 2026-10-12T00:11:35-07:00 +0.000s (step 0.000s) [MCP:SERVER:SEARCH] search_listings received
+      →    received request; executing listing search
+[2] 2026-10-12T00:11:35-07:00 +0.001s (step 0.000s) [MCP:SERVER:SEARCH] search_listings completed
+      →    matches=8
+[4] 2026-10-12T00:11:35-07:00 +1.565s (step 0.710s) [MCP:SEARCH:RETRY] search_listings
+[5] 2026-10-12T00:11:35-07:00 +1.565s (step 0.000s) select_item
+[6] 2026-10-12T00:11:35-07:00 +1.565s (step 0.000s) compare_price
+      →    status=above_average; peers=14; average=21.57; difference=2.43
+[7] 2026-10-12T00:11:35-07:00 +1.565s (step 0.000s) above-average price branch (Second Branch)
+      →    show a price warning and continue to suggest_outfit
+Trace generated at: 2026-10-12T00:11:36-07:00
+[1] 2026-10-12T00:11:36-07:00 +0.000s (step 0.000s) [MCP:SERVER:OUTFIT] suggest_outfit received
+      →    received request; executing outfit suggestion
+[2] 2026-10-12T00:11:38-07:00 +1.922s (step 1.922s) [MCP:SERVER:OUTFIT] suggest_outfit completed
+      →    characters=1067
+[8] 2026-10-12T00:11:38-07:00 +4.032s (step 2.466s) [MCP:OUTFIT] suggest_outfit
+[9] 2026-10-12T00:11:39-07:00 +5.190s (step 1.158s) [FITCARD:ACCEPT] validated caption
+      →    words=46; ownership retries=0
+[10] 2026-10-12T00:11:39-07:00 +5.191s (step 0.000s) create_fit_card
+```
+
+Criterion 2 was clarified before the new measurements: an impossible query
+stops after the permitted retry also returns empty. The query, $5 budget, and
+5/5 target remain unchanged.
+
+**3. A second measured improvement**
+
+**What changed:** The first improvement strengthened the fit-card prompt after
+an earlier caption said “Scored this,” implying a purchase that had not been
+established. The second improvement added a check in
+`tools.py::create_fit_card`: `_claims_completed_purchase` detects targeted
+purchase claims in the generated caption, such as “Scored this” or “I bought.”
+For an item presented as a suggested purchase, the function rejects that wording
+and requests one replacement. If the replacement repeats the claim, it raises a
+validation error instead of returning the caption. Outfit text containing a
+recognized explicit-ownership marker is exempt from this check.
+
+**Flow:**
+
+1. Receive the selected item and outfit text in `create_fit_card`.
+2. Build the caption prompt with the item details and the ownership instruction.
+   For a proposed purchase, request wording such as “Consider this.”
+3. Generate a caption and check it with `_claims_completed_purchase`.
+4. If a targeted claim appears without a recognized ownership marker in the
+   outfit input, log `[FITCARD:OWNERSHIP]` and request one rewrite, within the
+   function's overall attempt limit. If the claim persists, stop with a
+   validation error; the agent records a fit-card failure.
+5. For an accepted caption, apply the existing 60-word limit, log
+   `[FITCARD:ACCEPT]` with the word count and ownership-retry count, and return
+   the caption.
+
+**Trace**
+
+This focused call passed a saved outfit suggestion and the $24.00
+`Graphic Tee — 2003 Tour Bootleg Style` listing to `tools.py::create_fit_card`.
+The model returned a 47-word caption that passed the check on its first attempt.
+The trace below is copied from the saved execution without its separate test
+summary. `tools.py::create_fit_card` supplies the label and `trace.py::step`
+formats it. This is an existing live call, not a new execution or a full search
+run.
+
+```text
+Trace generated at: 2026-10-12T00:04:46-07:00
+[1] 2026-10-12T00:04:54-07:00 +8.133s (step 8.133s) [FITCARD:ACCEPT] validated caption
+      →    words=47; ownership retries=0
+```
+
+**Generated caption from the same call:**
+
+> Consider this Graphic Tee — 2003 Tour Bootleg Style for $24.0 on depop to nail that perfectly worn-in grunge aesthetic. Pair it with baggy jeans and a zip hoodie for effortless Y2K streetwear, or tuck it into khaki trousers with combat boots for cool contrast. #depopstyle #vintagestreetwear
+
+`ownership retries=0` means this live call exercised acceptance, not rejection
+or regeneration. The controlled-output tests in `test_fit_card_ownership.py`
+exercise rejection, a successful rewrite, repeated-claim failure, and the
+explicit-ownership exemption; their outputs are separate from this live trace.
+
+
+**Measured result:**
+
+| Criterion | Saved baseline | After prompt change | After ownership check |
+|---|---|---|---|
+| 1. Matching query completes | 5/5 | 3/5 | 5/5 |
+| 2. Empty search stops safely | 5/5 | 5/5 | 5/5 |
+| 3. State survives handoffs | 5/5 | 5/5 | 5/5 |
+| 4. Fit-card quality | 4/5 | 5/5 | 5/5 |
+| 5. Owned result advances search | 5/5 | 5/5 | 5/5 |
+
+
+### Full call with minimal trace — all three changes together
+
+`trace.start_trace(minimal=True)` followed by
+`agent.run_agent("vintage graphic tee size XXS under $30", get_example_wardrobe())`
+with caching disabled. The CLI also supports `--trace-minimal`.
+
+Produced by `agent.py::run_agent`, `mcp_server.py::search_listings`,
+`mcp_server.py::suggest_outfit`, and `tools.py::create_fit_card`; formatted by
+`trace.py::step`. Server step numbers restart per MCP process.
+
+```text
+Trace generated at: 2026-10-12T00:11:34-07:00
+[1] 2026-10-12T00:11:34-07:00 +0.001s (step 0.001s) parse_query
+Trace generated at: 2026-10-12T00:11:35-07:00
+[1] 2026-10-12T00:11:35-07:00 +0.000s (step 0.000s) [MCP:SERVER:SEARCH] search_listings received
+      →    received request; executing listing search
+[2] 2026-10-12T00:11:35-07:00 +0.001s (step 0.001s) [MCP:SERVER:SEARCH] search_listings completed
+      →    matches=0
+[2] 2026-10-12T00:11:35-07:00 +0.855s (step 0.854s) [MCP:SEARCH] search_listings
+[3] 2026-10-12T00:11:35-07:00 +0.855s (step 0.000s) [RETRY:SIZE] retry search once
+      →    No matches for size XXS. Retried once without the size filter; description and budget unchanged. Check each alternative's size.
+Trace generated at: 2026-10-12T00:11:35-07:00
+[1] 2026-10-12T00:11:35-07:00 +0.000s (step 0.000s) [MCP:SERVER:SEARCH] search_listings received
+      →    received request; executing listing search
+[2] 2026-10-12T00:11:35-07:00 +0.001s (step 0.000s) [MCP:SERVER:SEARCH] search_listings completed
+      →    matches=8
+[4] 2026-10-12T00:11:35-07:00 +1.565s (step 0.710s) [MCP:SEARCH:RETRY] search_listings
+[5] 2026-10-12T00:11:35-07:00 +1.565s (step 0.000s) select_item
+[6] 2026-10-12T00:11:35-07:00 +1.565s (step 0.000s) compare_price
+      →    status=above_average; peers=14; average=21.57; difference=2.43
+[7] 2026-10-12T00:11:35-07:00 +1.565s (step 0.000s) above-average price branch (Second Branch)
+      →    show a price warning and continue to suggest_outfit
+Trace generated at: 2026-10-12T00:11:36-07:00
+[1] 2026-10-12T00:11:36-07:00 +0.000s (step 0.000s) [MCP:SERVER:OUTFIT] suggest_outfit received
+      →    received request; executing outfit suggestion
+[2] 2026-10-12T00:11:38-07:00 +1.922s (step 1.922s) [MCP:SERVER:OUTFIT] suggest_outfit completed
+      →    characters=1067
+[8] 2026-10-12T00:11:38-07:00 +4.032s (step 2.466s) [MCP:OUTFIT] suggest_outfit
+[9] 2026-10-12T00:11:39-07:00 +5.190s (step 1.158s) [FITCARD:ACCEPT] validated caption
+      →    words=46; ownership retries=0
+[10] 2026-10-12T00:11:39-07:00 +5.191s (step 0.000s) create_fit_card
+[TEST:FULL] PASS: size retry + two MCP tools + validated fit card
+No matches for size XXS. Retried once without the size filter; description and budget unchanged. Check each alternative's size.
+Consider this effortless 90s grunge streetwear look! Pair the Graphic Tee — 2003 Tour Bootleg Style with baggy dark wash jeans and a vintage black denim jacket for the ultimate worn-in vibe. You can find it on depop right now for just $24.0. #depop #grunge #streetwear
+```
+
+The live call recovered eight matches by dropping only size, used both MCP tools,
+and returned a validated 46-word card. No ownership regeneration was needed in
+this call; its rejection path is exercised by the focused local tests above.
+
 
 ## What's Still Broken
 

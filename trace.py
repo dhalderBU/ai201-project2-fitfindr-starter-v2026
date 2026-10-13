@@ -33,16 +33,18 @@ import config
 _lines: list[str] = []
 _step_number = 0
 _enabled = False
+_minimal = False
 _trace_started_at = 0.0
 _last_step_at = 0.0
 
 
-def start_trace(enabled: bool = True) -> None:
+def start_trace(enabled: bool = True, minimal: bool = False) -> None:
     """Clear the trace and enable or disable trace output for the run."""
-    global _step_number, _enabled, _trace_started_at, _last_step_at
+    global _step_number, _enabled, _minimal, _trace_started_at, _last_step_at
     _lines.clear()
     _step_number = 0
     _enabled = enabled
+    _minimal = minimal
     _trace_started_at = time.perf_counter()
     _last_step_at = _trace_started_at
     if enabled:
@@ -78,9 +80,9 @@ def step(name: str, inputs=None, returned=None, note: str = "") -> None:
         f"[{_step_number}] {generated_at} +{elapsed:.3f}s "
         f"(step {step_duration:.3f}s) {name}"
     )
-    if inputs is not None:
+    if inputs is not None and not _minimal:
         line += f"\n      in:  {_short(inputs)}"
-    if returned is not None:
+    if returned is not None and not _minimal:
         line += f"\n      out: {_short(returned)}"
     if note:
         line += f"\n      →    {note}"
@@ -92,6 +94,14 @@ def step(name: str, inputs=None, returned=None, note: str = "") -> None:
 def get_trace() -> str:
     """The whole trace as text, ready to paste into your README."""
     return "\n".join(_lines)
+
+
+def is_enabled() -> bool:
+    return bool(_enabled)
+
+
+def is_minimal() -> bool:
+    return bool(_minimal)
 
 
 def _short(value, limit: int = 110) -> str:

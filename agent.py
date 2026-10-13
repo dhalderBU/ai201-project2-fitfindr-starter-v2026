@@ -17,7 +17,7 @@ from copy import deepcopy
 
 import config
 import trace
-from mcp_client import call_tool
+from mcp_client import call_tool, MCPError
 from tools import search_listings, suggest_outfit, create_fit_card, compare_price
 from generate import ModelUnavailable
 
@@ -54,6 +54,9 @@ def new_session(query: str, wardrobe: dict) -> dict:
         },                            # fixed inputs used for fit-card scoring
         "fit_card_outputs": [],       # outputs produced from those inputs
         "error": None,               # set when the run ended early
+        "mcp_outfit_evidence": None,
+        "search_attempts": [],
+        "search_notice": None,
     }
 
 
@@ -247,7 +250,9 @@ def run_agent(query: str, wardrobe: dict) -> dict:
         })
 
         session["search_results"] = results
-        trace.step("search_listings Using MCP", 
+        session["search_attempts"].append({"arguments": deepcopy(parsed),
+                                           "results": deepcopy(results)})
+        trace.step("[MCP:SEARCH] search_listings",
                    inputs=parsed, 
                    returned=results
                    )        
@@ -255,6 +260,20 @@ def run_agent(query: str, wardrobe: dict) -> dict:
         #_________ Branch rule: if nothing came back, stop and propose change__________________
         #_________ RULE : If search_listings returns an empty list, put a message in the session and stop. Otherwise, take the first result and go to suggest_outfit______
         
+        if not results and parsed["size"] is not None:
+            relaxed = {**parsed, "size": None}
+            session["search_notice"] = (
+                f"No matches for size {parsed['size']}. Retried once without the size "
+                "filter; description and budget unchanged. Check each alternative's size."
+            )
+            trace.step("[RETRY:SIZE] retry search once", inputs=relaxed,
+                       note=session["search_notice"])
+            results = call_tool("search_listings", relaxed)
+            session["search_attempts"].append({"arguments": deepcopy(relaxed),
+                                               "results": deepcopy(results)})
+            session["search_results"] = results
+            trace.step("[MCP:SEARCH:RETRY] search_listings", inputs=relaxed, returned=results)
+
         if not results:
             session["error"] = (
                 "No listings matched. Try broader keywords, a different size, "
@@ -337,12 +356,14 @@ def run_agent(query: str, wardrobe: dict) -> dict:
             )
 
         try:
-            session["outfit_suggestion"] = suggest_outfit(
-                session["selected_item"],
-                session["wardrobe"],
-            )
+            outfit_response = call_tool("suggest_outfit", {
+                "new_item": session["selected_item"],
+                "wardrobe": session["wardrobe"],
+            })
+            session["mcp_outfit_evidence"] = outfit_response
+            session["outfit_suggestion"] = outfit_response["outfit"]
             trace.step(
-                "suggest_outfit",
+                "[MCP:OUTFIT] suggest_outfit",
                 inputs=session["selected_item"],
                 returned=session["outfit_suggestion"],
             )
@@ -365,7 +386,7 @@ def run_agent(query: str, wardrobe: dict) -> dict:
                 inputs=session["fit_card_inputs"],
                 returned=session["fit_card"],
             )
-        except ModelUnavailable as exc:
+        except (ModelUnavailable, MCPError) as exc:
             session["error"] = f"Unable to complete the styling request: {exc}"
             trace.step("model error", returned=session["error"])
         except ValueError as exc:
