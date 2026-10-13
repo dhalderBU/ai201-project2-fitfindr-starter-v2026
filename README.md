@@ -845,6 +845,12 @@ Before submitting, confirm that {"items": []} is your real empty-wardrobe format
 - *What I changed:*
 I took the guidance and I changed the Criteria accordingly. The idea was mine but I wrote and have something and claude commented on it and i used the changed wording for the criteria
 
+**additional AI usage**
+- Evaluation of my response . I tried evaluating my response using AI
+- I also asked AI to help me in coding.
+-  I asked AI to insert trace int he sections where I needed to
+
+
 ### I have also implemented the three stretch Features
 - A forth Tool
 - A second Branch
@@ -1806,41 +1812,38 @@ this call; its rejection path is exercised by the focused local tests above.
 
 ## What's Still Broken
 
-<!-- For each criterion still missed: what you'd do, and why you stopped where
-     you did. "I ran out of time" is fine if it's true. Pretending nothing is
-     left is not. -->
-
-
+**Nothing is broken as  but we could potentially add more tools to the mcp server. Since i have already added 2nd tool i am not doing others**
+- we could enhance the memory feature (already added this feature but we could make it even better) like adding preferences etc.
 
 <!-- ═════════════════════════════════════════════════════════════════════
 
      SUBMISSION CHECKLIST — unit 3
 
-       [ ] criteria.md has five numbered criteria, each with a target
-       [ ] Each criterion has a reason underneath it
-       [ ] All five unit 3 sections above have real content
-       [ ] Tool Inventory: all three tools, inputs WITH TYPES, a specific
+       [*] criteria.md has five numbered criteria, each with a target
+       [*] Each criterion has a reason underneath it
+       [*] All five unit 3 sections above have real content
+       [*] Tool Inventory: all three tools, inputs WITH TYPES, a specific
            return value, and the empty case
-       [ ] Planning Loop names the branch rule and agent.py::run_agent
-       [ ] Sample Run: one full query plus the three per-tool tests, as text
-       [ ] At least four new commits
-       [ ] Repository URL submitted — WRITE IT DOWN, you submit the same one
+       [*] Planning Loop names the branch rule and agent.py::run_agent
+       [*] Sample Run: one full query plus the three per-tool tests, as text
+       [*] At least four new commits
+       [*] Repository URL submitted — WRITE IT DOWN, you submit the same one
            next unit
 
      SUBMISSION CHECKLIST — unit 4
 
-       [ ] mcp_server.py exists with one tool registered
+       [*] mcp_server.py exists with one tool registered
            (or a written record of exactly where the rewire broke)
-       [ ] Run Log — Before, five criteria, five tries each
-       [ ] Real output pasted underneath, naming file and function
-       [ ] A verdict on every criterion
-       [ ] A diagnosis for every miss, naming a place AND a mechanism
-       [ ] Loop Trace, with the MCP call visible in it
-       [ ] All three failure modes triggered and handled
-       [ ] One improvement, with Run Log — After in the same format
-       [ ] What's Still Broken
-       [ ] At least four new commits
-       [ ] The SAME repository URL as last unit
+       [*] Run Log — Before, five criteria, five tries each
+       [*] Real output pasted underneath, naming file and function
+       [*] A verdict on every criterion
+       [*] A diagnosis for every miss, naming a place AND a mechanism
+       [*] Loop Trace, with the MCP call visible in it
+       [*] All three failure modes triggered and handled
+       [*] One improvement, with Run Log — After in the same format
+       [*] What's Still Broken
+       [*] At least four new commits
+       [*] The SAME repository URL as last unit
 
      Do not delete and recreate this repository. Your commit history is what
      shows your criteria existed before your results did.
